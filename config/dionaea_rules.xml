@@ -1,0 +1,164 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<group name="dionaea,honeypot,malware,smb,ftp,http,attack,">
+
+  <!-- Règle parent pour logs Dionaea -->
+  <rule id="100200" level="0">
+    <match>dionaea</match>
+    <description>Dionaea: Événement honeypot détecté</description>
+    <group>honeypot,</group>
+  </rule>
+
+  <!-- Activité SMB suspecte -->
+  <rule id="100201" level="5">
+    <if_sid>100200</if_sid>
+    <match>SMB</match>
+    <description>Dionaea: Activité SMB suspecte détectée</description>
+    <group>smb,network,attack,</group>
+    <mitre_id>T1046</mitre_id>
+    <mitre_tactic>TA0007</mitre_tactic>
+  </rule>
+
+  <!-- Tentative d'exploitation SMB -->
+  <rule id="100202" level="8">
+    <if_sid>100201</if_sid>
+    <match>Attempt to register</match>
+    <description>Dionaea: Tentative d'exploitation SMB (RPC)</description>
+    <group>exploit,smb,attack,</group>
+    <mitre_id>T1210</mitre_id>
+    <mitre_tactic>TA0008</mitre_tactic>
+  </rule>
+
+  <!-- Connexion SMB -->
+  <rule id="100203" level="6">
+    <if_sid>100200</if_sid>
+    <match>smb.py</match>
+    <match>Connection from</match>
+    <description>Dionaea: Connexion SMB entrante</description>
+    <group>smb,network,</group>
+    <mitre_id>T1046</mitre_id>
+    <mitre_tactic>TA0007</mitre_tactic>
+  </rule>
+
+  <!-- Erreur SQLite (attaque non enregistrée) -->
+  <rule id="100204" level="4">
+    <if_sid>100200</if_sid>
+    <match>log_sqlite</match>
+    <match>no attackid</match>
+    <description>Dionaea: Attaque détectée mais non enregistrée en base</description>
+    <group>database,error,</group>
+  </rule>
+
+  <!-- Malware capturé -->
+  <rule id="100205" level="12">
+    <if_sid>100200</if_sid>
+    <match>Stored binary</match>
+    <description>Dionaea: Malware capturé et stocké</description>
+    <group>malware,capture,attack,</group>
+    <mitre_id>T1204</mitre_id>
+    <mitre_tactic>TA0002</mitre_tactic>
+  </rule>
+
+  <!-- Connexion FTP -->
+  <rule id="100206" level="6">
+    <if_sid>100200</if_sid>
+    <match>ftp</match>
+    <match>Connection from</match>
+    <description>Dionaea: Connexion FTP entrante</description>
+    <group>ftp,network,attack,</group>
+    <mitre_id>T1046</mitre_id>
+    <mitre_tactic>TA0007</mitre_tactic>
+  </rule>
+
+  <!-- Connexion HTTP/HTTPS -->
+  <rule id="100207" level="6">
+    <if_sid>100200</if_sid>
+    <match>http</match>
+    <match>Connection from</match>
+    <description>Dionaea: Connexion HTTP/HTTPS entrante</description>
+    <group>http,network,attack,</group>
+    <mitre_id>T1046</mitre_id>
+    <mitre_tactic>TA0007</mitre_tactic>
+  </rule>
+
+  <!-- Tentative d'exploit connu -->
+  <rule id="100208" level="10">
+    <if_sid>100200</if_sid>
+    <match>MS08-067|MS17-010|EternalBlue|BlueKeep</match>
+    <description>Dionaea: Tentative d'exploit Windows connu</description>
+    <group>exploit,windows,attack,</group>
+    <mitre_id>T1210</mitre_id>
+    <mitre_tactic>TA0008</mitre_tactic>
+  </rule>
+
+  <!-- Scan de port détecté -->
+  <rule id="100209" level="7">
+    <if_sid>100200</if_sid>
+    <match>mssql|mysql|postgres|vnc|rdp</match>
+    <description>Dionaea: Scan de service détecté</description>
+    <group>reconnaissance,scan,attack,</group>
+    <mitre_id>T1046</mitre_id>
+    <mitre_tactic>TA0007</mitre_tactic>
+  </rule>
+
+  <!-- Multiple connexions depuis même IP -->
+  <rule id="100210" level="8">
+    <if_sid>100200</if_sid>
+    <same_source_ip />
+    <frequency>10</frequency>
+    <timeframe>120</timeframe>
+    <description>Dionaea: Multiples connexions depuis la même IP (scan agressif)</description>
+    <group>scan,reconnaissance,attack,</group>
+    <mitre_id>T1046</mitre_id>
+    <mitre_tactic>TA0007</mitre_tactic>
+  </rule>
+
+  <!-- Tentative de téléchargement -->
+  <rule id="100211" level="9">
+    <if_sid>100200</if_sid>
+    <match>download|payload|executable|.exe|.dll</match>
+    <description>Dionaea: Tentative de téléchargement de payload</description>
+    <group>malware,download,attack,</group>
+    <mitre_id>T1105</mitre_id>
+    <mitre_tactic>TA0011</mitre_tactic>
+  </rule>
+
+  <!-- Erreur de protocole (honeypot se fait repérer) -->
+  <rule id="100212" level="5">
+    <if_sid>100200</if_sid>
+    <match>protocol error|unsupported|not implemented</match>
+    <description>Dionaea: Erreur de protocole (honeypot peut être détecté)</description>
+    <group>honeypot,error,</group>
+  </rule>
+
+  <!-- Connexion sur port non standard -->
+  <rule id="100213" level="7">
+    <if_sid>100200</if_sid>
+    <match>port:</match>
+    <field name="dport">^[0-9]{4,5}$</field>
+    <description>Dionaea: Connexion sur port non standard</description>
+    <group>unusual_port,attack,</group>
+    <mitre_id>T1046</mitre_id>
+    <mitre_tactic>TA0007</mitre_tactic>
+  </rule>
+
+  <!-- Capture de shellcode -->
+  <rule id="100214" level="11">
+    <if_sid>100200</if_sid>
+    <match>shellcode|meterpreter|reverse_shell</match>
+    <description>Dionaea: Shellcode ou payload avancé capturé</description>
+    <group>malware,exploit,attack,</group>
+    <mitre_id>T1204</mitre_id>
+    <mitre_tactic>TA0002</mitre_tactic>
+  </rule>
+
+  <!-- Détection d'outil d'attaque -->
+  <rule id="100215" level="8">
+    <if_sid>100200</if_sid>
+    <match>Metasploit|nmap|hydra|medusa|sqlmap</match>
+    <description>Dionaea: Outil d'attaque détecté (user-agent/fingerprint)</description>
+    <group>tool_detection,attack,</group>
+    <mitre_id>T1588</mitre_id>
+    <mitre_tactic>TA0002</mitre_tactic>
+  </rule>
+
+</group>

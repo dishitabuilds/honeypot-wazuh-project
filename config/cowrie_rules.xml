@@ -1,0 +1,132 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<group name="cowrie,honeypot,ssh,telnet,attack,">
+
+  <!-- Règle parent pour tous les événements Cowrie -->
+  <rule id="100100" level="0">
+    <decoded_as>json</decoded_as>
+    <field name="eventid">cowrie</field>
+    <description>Cowrie: Événement honeypot détecté</description>
+    <group>honeypot,</group>
+  </rule>
+
+  <!-- Tentatives de connexion SSH/Telnet -->
+  <rule id="100101" level="5">
+    <if_sid>100100</if_sid>
+    <field name="eventid">cowrie.login</field>
+    <description>Cowrie: Tentative de connexion SSH/Telnet</description>
+    <group>authentication_failed,</group>
+    <mitre_id>T1110</mitre_id>
+    <mitre_tactic>TA0006</mitre_tactic>
+  </rule>
+
+  <!-- Connexion réussie (honeypot) -->
+  <rule id="100102" level="7">
+    <if_sid>100100</if_sid>
+    <field name="eventid">cowrie.session.connect</field>
+    <description>Cowrie: Session honeypot établie</description>
+    <group>honeypot,successful,</group>
+    <mitre_id>T1078</mitre_id>
+    <mitre_tactic>TA0001</mitre_tactic>
+  </rule>
+
+  <!-- Commandes exécutées dans la session -->
+  <rule id="100103" level="8">
+    <if_sid>100100</if_sid>
+    <field name="eventid">cowrie.command.input</field>
+    <description>Cowrie: Commande exécutée dans la session</description>
+    <group>execution,attack,</group>
+    <mitre_id>T1059</mitre_id>
+    <mitre_tactic>TA0002</mitre_tactic>
+  </rule>
+
+  <!-- Commandes spécifiques dangereuses -->
+  <rule id="100104" level="10">
+    <if_sid>100103</if_sid>
+    <field name="input">wget|curl|nc|netcat|nmap|ssh|scp</field>
+    <description>Cowrie: Commande réseau suspecte détectée</description>
+    <group>malware,download,attack,</group>
+    <mitre_id>T1105</mitre_id>
+    <mitre_tactic>TA0011</mitre_tactic>
+  </rule>
+
+  <!-- Téléchargement de fichiers -->
+  <rule id="100105" level="12">
+    <if_sid>100100</if_sid>
+    <field name="eventid">cowrie.session.file_download</field>
+    <description>Cowrie: Téléchargement de fichier via honeypot</description>
+    <group>malware,download,attack,</group>
+    <mitre_id>T1105</mitre_id>
+    <mitre_tactic>TA0011</mitre_tactic>
+  </rule>
+
+  <!-- Tunneling SSH détecté -->
+  <rule id="100106" level="12">
+    <if_sid>100100</if_sid>
+    <field name="eventid">cowrie.direct-tcpip.request</field>
+    <description>Cowrie: Tentative de tunneling SSH détectée</description>
+    <group>tunneling,persistence,attack,</group>
+    <mitre_id>T1572</mitre_id>
+    <mitre_tactic>TA0011</mitre_tactic>
+  </rule>
+
+  <!-- Bruteforce détecté -->
+  <rule id="100107" level="8">
+    <if_sid>100101</if_sid>
+    <frequency>5</frequency>
+    <timeframe>60</timeframe>
+    <description>Cowrie: Attaque par bruteforce détectée (multiples tentatives)</description>
+    <group>bruteforce,attack,</group>
+    <mitre_id>T1110</mitre_id>
+    <mitre_tactic>TA0006</mitre_tactic>
+  </rule>
+
+  <!-- Mot de passe capturé -->
+  <rule id="100108" level="6">
+    <if_sid>100100</if_sid>
+    <field name="eventid">cowrie.login.failed</field>
+    <field name="password">.+</field>
+    <description>Cowrie: Mot de passe capturé (tentative échouée)</description>
+    <group>credential_access,attack,</group>
+    <mitre_id>T1110</mitre_id>
+    <mitre_tactic>TA0006</mitre_tactic>
+  </rule>
+
+  <!-- Session fermée -->
+  <rule id="100109" level="3">
+    <if_sid>100100</if_sid>
+    <field name="eventid">cowrie.session.closed</field>
+    <description>Cowrie: Session honeypot fermée</description>
+    <group>honeypot,</group>
+  </rule>
+
+  <!-- Connexion depuis IP suspecte (liste noire optionnelle) -->
+  <rule id="100110" level="10">
+    <if_sid>100102</if_sid>
+    <list field="src_ip">etc/lists/blacklist-ips</list>
+    <description>Cowrie: Connexion depuis IP blacklistée</description>
+    <group>blacklist,attack,</group>
+    <mitre_id>T1078</mitre_id>
+    <mitre_tactic>TA0001</mitre_tactic>
+  </rule>
+
+  <!-- Tentative de connexion avec compte par défaut -->
+  <rule id="100111" level="7">
+    <if_sid>100101</if_sid>
+    <field name="username">root|admin|test|user|ubuntu|centos</field>
+    <description>Cowrie: Tentative avec compte par défaut</description>
+    <group>default_accounts,attack,</group>
+    <mitre_id>T1078</mitre_id>
+    <mitre_tactic>TA0001</mitre_tactic>
+  </rule>
+
+  <!-- Détection de scan de port -->
+  <rule id="100112" level="6">
+    <if_sid>100100</if_sid>
+    <field name="eventid">cowrie.client.version</field>
+    <description>Cowrie: Client SSH détecté (scan possible)</description>
+    <group>reconnaissance,attack,</group>
+    <mitre_id>T1046</mitre_id>
+    <mitre_tactic>TA0007</mitre_tactic>
+  </rule>
+
+</group>
