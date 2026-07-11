@@ -1,6 +1,9 @@
 # Multi-protocol Honeypot & Real-Time Threat Analytics
 # ----------------------------------------------------
-# Cowrie (SSH/Telnet) + Dionaea (SMB/FTP/HTTP) honeypots write to shared volumes;
+# Three sensors write to shared volumes:
+#   cowrie   — SSH/Telnet (off-the-shelf)
+#   dionaea  — SMB/FTP/HTTP/MSSQL/MySQL (off-the-shelf)
+#   webtrap  — self-written HTTP honeypot (fake admin/login panels)  [./webhoneypot]
 # the `analytics` service tails them, runs detection + threat-intel enrichment,
 # stores events, and serves the live dashboard on http://localhost:8080
 #
@@ -38,6 +41,16 @@ services:
       - dionaea-logs:/opt/dionaea/var/log
     networks: [honeynet]
 
+  webtrap:
+    build: ./webhoneypot
+    container_name: hp-webtrap
+    restart: unless-stopped
+    ports:
+      - "8090:80"       # self-written HTTP honeypot (fake admin/login panels)
+    volumes:
+      - webtrap-logs:/logs/webtrap
+    networks: [honeynet]
+
   analytics:
     build: ./ingest
     container_name: hp-analytics
@@ -47,10 +60,14 @@ services:
       - "8080:8080"     # dashboard + API
     environment:
       - COWRIE_LOG=/logs/cowrie/cowrie.json
-      - DIONAEA_LOG=/logs/dionaea/dionaea.log
+      - DIONAEA_LOG=/logs/dionaea/dionaea/dionaea.log
+      - WEBTRAP_LOG=/logs/webtrap/webtrap.json
       - DB_PATH=/data/honeypot.db
       - ALERT_LEVEL=${ALERT_LEVEL:-10}
       - ABUSEIPDB_KEY=${ABUSEIPDB_KEY:-}
+      - DASH_USER=${DASH_USER:-}
+      - DASH_PASS=${DASH_PASS:-}
+      - RETENTION_DAYS=${RETENTION_DAYS:-0}
       - TELEGRAM_TOKEN=${TELEGRAM_TOKEN:-}
       - TELEGRAM_CHAT_ID=${TELEGRAM_CHAT_ID:-}
       - SMTP_HOST=${SMTP_HOST:-}
@@ -62,12 +79,14 @@ services:
     volumes:
       - cowrie-logs:/logs/cowrie:ro
       - dionaea-logs:/logs/dionaea:ro
+      - webtrap-logs:/logs/webtrap:ro
       - ./data:/data
     networks: [honeynet]
 
 volumes:
   cowrie-logs:
   dionaea-logs:
+  webtrap-logs:
 
 networks:
   honeynet:

@@ -6,12 +6,15 @@ Run:  uvicorn app.main:app --host 0.0.0.0 --port 8080
 """
 from __future__ import annotations
 import asyncio
+import base64
+import binascii
+import hmac
 import os
 from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
-from fastapi.responses import HTMLResponse, JSONResponse, FileResponse
+from fastapi.responses import HTMLResponse, JSONResponse, FileResponse, Response
 from fastapi.staticfiles import StaticFiles
 
 from . import db, report
@@ -21,6 +24,16 @@ from . import simulate
 DB_PATH = os.getenv("DB_PATH", "/data/honeypot.db")
 DASH_DIR = Path(__file__).resolve().parent.parent / "dashboard"
 REPORT_EVERY = int(os.getenv("REPORT_EVERY_SECONDS", "86400"))
+RETENTION_DAYS = int(os.getenv("RETENTION_DAYS", "0"))          # 0 = keep everything
+RETENTION_EVERY = int(os.getenv("RETENTION_EVERY_SECONDS", "3600"))
+
+# Optional HTTP Basic auth. Set both to require a login before the dashboard/API
+# are reachable; unset (the default) keeps the local demo open.
+DASH_USER = os.getenv("DASH_USER", "").strip()
+DASH_PASS = os.getenv("DASH_PASS", "").strip()
+_AUTH_OK = f"Basic {base64.b64encode(f'{DASH_USER}:{DASH_PASS}'.encode()).decode()}"
+# Paths that must stay open even with auth on (container healthcheck).
+_AUTH_EXEMPT = {"/api/health"}
 
 
 class Hub:
@@ -60,6 +73,21 @@ async def _periodic_reports():
             pass
 
 
+async def _periodic_retention():
+    """Enforce a data-retention window so the events table and the in-memory
+    correlation trackers don't grow without bound on a long-lived sensor."""
+    if RETENTION_DAYS <= 0:
+        return
+    from .detect import prune_trackers
+    while True:
+        await asyncio.sleep(RETENTION_EVERY)
+        try:
+            db.purge_older_than(RETENTION_DAYS)
+            prune_trackers()
+        except Exception:
+            pass
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     global pipeline
@@ -68,7 +96,9 @@ async def lifespan(app: FastAPI):
     tasks = [
         asyncio.create_task(pipeline.run_cowrie()),
         asyncio.create_task(pipeline.run_dionaea()),
+        asyncio.create_task(pipeline.run_webtrap()),
         asyncio.create_task(_periodic_reports()),
+        asyncio.create_task(_periodic_retention()),
     ]
     yield
     for t in tasks:
@@ -78,6 +108,23 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="Honeypot Threat Analytics", lifespan=lifespan)
 
 
+@app.middleware("http")
+async def _basic_auth(request, call_next):
+    """Gate every route behind HTTP Basic when DASH_USER/DASH_PASS are set."""
+    if DASH_USER and DASH_PASS and request.url.path not in _AUTH_EXEMPT:
+        header = request.headers.get("authorization", "")
+        ok = False
+        if header.startswith("Basic "):
+            try:
+                base64.b64decode(header[6:])           # reject malformed base64
+                ok = hmac.compare_digest(header, _AUTH_OK)
+            except (binascii.Error, ValueError):
+                ok = False
+        if not ok:
+            return Response(status_code=401, headers={"WWW-Authenticate": "Basic realm=honeypot"})
+    return await call_next(request)
+
+
 # ---------- API ----------
 @app.get("/api/summary")
 async def api_summary():
@@ -85,8 +132,8 @@ async def api_summary():
 
 
 @app.get("/api/events")
-async def api_events(limit: int = 120, min_level: int = 0):
-    return db.recent_events(limit=limit, min_level=min_level)
+async def api_events(limit: int = 120, min_level: int = 0, protocol: str | None = None):
+    return db.recent_events(limit=limit, min_level=min_level, protocol=protocol)
 
 
 @app.get("/api/alerts")

@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Rules for the project's self-written HTTP honeypot (webhoneypot/).
+     Kept in the same Wazuh format as the Cowrie/Dionaea rules; the analytics
+     pipeline generates its Python catalog from this file (scripts/gen_rules.py). -->
+<group name="webtrap,honeypot,http,web,attack,">
+
+  <!-- Parent: any web-honeypot event -->
+  <rule id="100300" level="0">
+    <decoded_as>json</decoded_as>
+    <field name="eventid">webtrap</field>
+    <description>Webtrap: HTTP honeypot event</description>
+    <group>honeypot,web,</group>
+  </rule>
+
+  <!-- Generic request to a decoy page -->
+  <rule id="100301" level="3">
+    <if_sid>100300</if_sid>
+    <field name="eventid">webtrap.request</field>
+    <description>Webtrap: HTTP request to decoy web server</description>
+    <group>web,recon,</group>
+    <mitre_id>T1595</mitre_id>
+    <mitre_tactic>TA0043</mitre_tactic>
+  </rule>
+
+  <!-- Probe of a sensitive path (.env, .git, wp-login, phpmyadmin, admin…) -->
+  <rule id="100302" level="6">
+    <if_sid>100300</if_sid>
+    <field name="eventid">webtrap.recon</field>
+    <description>Webtrap: Sensitive path / admin panel probed</description>
+    <group>web,recon,attack,</group>
+    <mitre_id>T1595</mitre_id>
+    <mitre_tactic>TA0043</mitre_tactic>
+  </rule>
+
+  <!-- Credentials submitted to a fake login form / basic auth -->
+  <rule id="100303" level="7">
+    <if_sid>100300</if_sid>
+    <field name="eventid">webtrap.credential</field>
+    <description>Webtrap: Credentials submitted to decoy login</description>
+    <group>web,credential-access,attack,</group>
+    <mitre_id>T1110</mitre_id>
+    <mitre_tactic>TA0006</mitre_tactic>
+  </rule>
+
+  <!-- Scanner / attack-tool user-agent (sqlmap, nikto, nuclei, curl bots…) -->
+  <rule id="100304" level="7">
+    <if_sid>100300</if_sid>
+    <field name="eventid">webtrap.scanner</field>
+    <description>Webtrap: Automated scanner / attack tool detected</description>
+    <group>web,tool_detection,attack,</group>
+    <mitre_id>T1595</mitre_id>
+    <mitre_tactic>TA0043</mitre_tactic>
+  </rule>
+
+  <!-- Exploit / path-traversal / injection signature in the request -->
+  <rule id="100305" level="10">
+    <if_sid>100300</if_sid>
+    <field name="eventid">webtrap.exploit</field>
+    <description>Webtrap: Web exploit / traversal attempt</description>
+    <group>web,exploit,attack,</group>
+    <mitre_id>T1190</mitre_id>
+    <mitre_tactic>TA0001</mitre_tactic>
+  </rule>
+
+  <!-- Correlation: many requests from one IP = aggressive web scan -->
+  <rule id="100306" level="8">
+    <if_sid>100301</if_sid>
+    <same_source_ip />
+    <frequency>15</frequency>
+    <timeframe>60</timeframe>
+    <description>Webtrap: Aggressive web scanning (many requests / 60s)</description>
+    <group>web,scan,attack,</group>
+    <mitre_id>T1595</mitre_id>
+    <mitre_tactic>TA0043</mitre_tactic>
+  </rule>
+
+</group>

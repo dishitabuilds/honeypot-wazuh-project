@@ -6,6 +6,7 @@ Kept dependency-free (plain HTML string) so it opens anywhere and can be
 printed to PDF from a browser.
 """
 from __future__ import annotations
+import html
 import os
 from datetime import datetime, timezone
 from pathlib import Path
@@ -15,10 +16,17 @@ from . import db
 REPORT_DIR = os.getenv("REPORT_DIR", "/data/reports")
 
 
+def _esc(v) -> str:
+    """Escape a cell value. Attacker-controlled strings (usernames, passwords,
+    commands captured by the honeypot) reach this report, so every value must be
+    HTML-escaped to prevent stored XSS when the report is opened in a browser."""
+    return html.escape("" if v is None else str(v), quote=True)
+
+
 def _rows_html(rows, cols):
     body = ""
     for r in rows:
-        body += "<tr>" + "".join(f"<td>{r.get(c, '')}</td>" for c in cols) + "</tr>"
+        body += "<tr>" + "".join(f"<td>{_esc(r.get(c, ''))}</td>" for c in cols) + "</tr>"
     return body
 
 
@@ -28,6 +36,7 @@ def build_html() -> str:
     cmds = db.top_commands(10)
     rules = db.alerts_by_rule()
     ips = db.top_ips(10)
+    protos = db.protocol_split()
     now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
 
     return f"""<!doctype html><html><head><meta charset="utf-8">
@@ -55,8 +64,12 @@ def build_html() -> str:
  <div class="k"><b>{s['breaches']}</b><span>Breaches</span></div>
  <div class="k"><b>{s['commands']}</b><span>Commands</span></div>
  <div class="k"><b>{s['unique_ips']}</b><span>Unique IPs</span></div>
+ <div class="k"><b>{s['protocols']}</b><span>Protocols hit</span></div>
  <div class="k"><b>{s['top_level']}</b><span>Top level</span></div>
 </div>
+<h2>Protocol coverage</h2>
+<table><tr><th>Protocol</th><th>Sensor</th><th>Events</th><th>Unique IPs</th><th>Max level</th></tr>
+{_rows_html(protos, ['protocol','honeypot','n','ips','top_level'])}</table>
 <h2>Alerts raised</h2>
 <table><tr><th>Rule</th><th>Description</th><th>Level</th><th>MITRE</th><th>Hits</th></tr>
 {_rows_html(rules, ['rule_id','rule_desc','level','mitre','hits'])}</table>

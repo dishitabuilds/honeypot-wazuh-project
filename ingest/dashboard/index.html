@@ -71,8 +71,8 @@
   @media (prefers-reduced-motion:reduce){.dot.on{animation:none}}
 
   /* ---- KPI ---- */
-  .kpis{display:grid;grid-template-columns:repeat(6,1fr);gap:12px;margin-bottom:14px}
-  @media (max-width:1000px){.kpis{grid-template-columns:repeat(3,1fr)}}
+  .kpis{display:grid;grid-template-columns:repeat(7,1fr);gap:12px;margin-bottom:14px}
+  @media (max-width:1000px){.kpis{grid-template-columns:repeat(4,1fr)}}
   @media (max-width:560px){.kpis{grid-template-columns:repeat(2,1fr)}}
   .kpi{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:13px 15px;
     box-shadow:var(--shadow-sm);position:relative;overflow:hidden}
@@ -112,6 +112,25 @@
   .protorow{display:flex;gap:8px;margin-top:12px;font-size:11.5px;color:var(--dim);align-items:center;flex-wrap:wrap}
   .protorow .pp{font-family:var(--mono);background:var(--panel-2);border:1px solid var(--line);border-radius:6px;padding:3px 8px}
 
+  /* protocol coverage cards */
+  .protogrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
+  .pcard{background:var(--panel-2);border:1px solid var(--line);border-radius:11px;padding:11px 13px;position:relative;overflow:hidden;
+    cursor:pointer;transition:border-color .15s,box-shadow .15s,transform .05s}
+  .pcard:hover{border-color:var(--line-2)}
+  .pcard:active{transform:translateY(1px)}
+  .pcard.active{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent) inset}
+  .pcard::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--sevc,var(--accent))}
+  .pcard .ph{display:flex;align-items:center;justify-content:space-between;gap:6px}
+  .pcard .pname{font-family:var(--mono);font-weight:700;font-size:13px;text-transform:uppercase;letter-spacing:.03em}
+  .pcard .hp{font-family:var(--mono);font-size:8.5px;letter-spacing:.05em;text-transform:uppercase;padding:2px 6px;border-radius:5px;
+    background:var(--accent-soft);color:var(--accent)}
+  .pcard .hp.dio{background:var(--med-bg);color:var(--med)}
+  .pcard .hp.web{background:var(--low-bg);color:var(--low)}
+  .pcard .pn{font-size:22px;font-weight:650;letter-spacing:-.02em;margin-top:7px;line-height:1}
+  .pcard .pmeta{font-family:var(--mono);font-size:10px;color:var(--dim);margin-top:3px}
+  .pcard .ptrack{height:5px;background:var(--panel);border-radius:3px;overflow:hidden;margin-top:8px}
+  .pcard .pfill{height:100%;background:var(--sevc,var(--accent));border-radius:3px;transition:width .5s ease}
+
   /* bars */
   .bars{display:flex;flex-direction:column;gap:9px}
   .brow{display:grid;grid-template-columns:1fr auto;gap:4px 8px;align-items:center;font-size:12px}
@@ -135,7 +154,9 @@
   .filters button{padding:4px 10px;font-size:11px;border-radius:999px}
   .filters button.act{background:var(--accent-soft);border-color:var(--accent);color:var(--accent)}
   .feed{max-height:400px;overflow-y:auto;margin-top:4px}
-  .frow{display:grid;grid-template-columns:56px 10px 132px 1fr auto;gap:9px;align-items:center;padding:7px 4px;border-bottom:1px solid var(--line)}
+  .frow{display:grid;grid-template-columns:56px 10px 128px 58px 1fr auto;gap:9px;align-items:center;padding:7px 4px;border-bottom:1px solid var(--line)}
+  .frow .pr{font-family:var(--mono);font-size:9px;letter-spacing:.03em;text-transform:uppercase;text-align:center;
+    padding:1px 5px;border-radius:5px;background:var(--panel-2);color:var(--dim);border:1px solid var(--line);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .frow.new{animation:flash .9s ease-out}
   @keyframes flash{0%{background:var(--accent-soft)}100%{background:transparent}}
   @media (prefers-reduced-motion:reduce){.frow.new{animation:none}}
@@ -172,7 +193,7 @@
           <path d="M12 2 4 5v6c0 5 3.4 8.5 8 11 4.6-2.5 8-6 8-11V5z"/><path d="M9 12l2 2 4-4"/></svg>
       </div>
       <div><h1>Honeypot Threat Analytics</h1>
-        <div class="sub">Cowrie + Dionaea &rarr; live SOC console</div></div>
+        <div class="sub">Cowrie + Dionaea + WebTrap &rarr; live SOC console</div></div>
     </div>
     <div class="spacer"></div>
     <span class="threat" id="threat"><span class="lbl">THREAT</span><span id="threatVal">—</span></span>
@@ -189,6 +210,12 @@
     <div class="kpi" data-tone="crit"><div class="n" id="k_breach">0</div><div class="l">Breaches</div></div>
     <div class="kpi" data-tone="warn"><div class="n" id="k_cmd">0</div><div class="l">Commands</div></div>
     <div class="kpi"><div class="n" id="k_ips">0</div><div class="l">Unique IPs</div></div>
+    <div class="kpi"><div class="n" id="k_proto">0</div><div class="l">Protocols hit</div></div>
+  </section>
+
+  <section class="panel" style="margin-bottom:14px">
+    <div class="head"><h2>🛰️ Protocol coverage</h2><span class="tag">services attacked · sensor · worst severity</span></div>
+    <div class="body"><div class="protogrid" id="protogrid"><div class="empty">No protocol activity yet — run a simulation</div></div></div>
   </section>
 
   <div class="grid c-72">
@@ -201,7 +228,6 @@
       <div class="body">
         <div class="meter" id="meter"></div>
         <div class="slegend" id="slegend"></div>
-        <div class="protorow" id="protorow"></div>
       </div>
     </section>
   </div>
@@ -227,12 +253,15 @@
 
   <div class="grid c-64">
     <section class="panel">
-      <div class="head">
+      <div class="head" style="flex-wrap:wrap;gap:8px">
         <h2>Live event feed</h2>
         <div class="filters" id="filters">
           <button data-f="0" class="act">All</button>
           <button data-f="8">High+</button>
           <button data-f="10">Critical</button>
+        </div>
+        <div class="filters" id="protofilters" style="width:100%">
+          <button data-p="" class="act">All protocols</button>
         </div>
       </div>
       <div class="body"><div class="feed" id="feed"><div class="empty">Waiting for events…</div></div></div>
@@ -297,21 +326,27 @@ $('#themeBtn').onclick=()=>{
   const next=cur==='light'?'dark':cur==='dark'?'light':(sysDark?'light':'dark');
   document.documentElement.setAttribute('data-theme',next);
   try{localStorage.setItem('hp-theme',next);}catch(e){}
-  drawChart(); drawMap(); renderMeter(lastSev,lastProto);
+  drawChart(); drawMap(); renderMeter(lastSev); renderProtocols(lastProto);
 };
 try{const t=localStorage.getItem('hp-theme'); if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}
 
 /* ---- state ---- */
 let lastSeries=[], lastGeo=[], lastSev=[], lastProto=[];
-let chartGeom=null, mapGeom=null, feedFilter=0, feedBuf=[];
+let chartGeom=null, mapGeom=null, feedFilter=0, feedProto='', feedBuf=[];
+
+/* protocol -> severity band, for colouring coverage cards + feed tags */
+function lvlBand(l){ return l>=10?'critical':l>=8?'high':l>=6?'medium':l>=3?'low':'info'; }
 
 /* ---- KPI count-up ---- */
 function animate(el,to){
-  const from=parseInt(el.textContent.replace(/\D/g,''))||0;
+  to=Math.max(0,to|0);
+  const from=parseInt(el.textContent.replace(/[^\d]/g,''))||0;
   if(from===to){el.textContent=to;return;}
   if(matchMedia('(prefers-reduced-motion: reduce)').matches){el.textContent=to;return;}
-  const t0=performance.now(),dur=500;
-  (function step(t){const p=Math.min(1,(t-t0)/dur);el.textContent=Math.round(from+(to-from)*(1-Math.pow(1-p,3)));
+  const t0=performance.now(),dur=500,lo=Math.min(from,to),hi=Math.max(from,to);
+  (function step(t){const p=Math.min(1,Math.max(0,(t-t0)/dur));
+    const v=Math.round(from+(to-from)*(1-Math.pow(1-p,3)));
+    el.textContent=Math.min(hi,Math.max(lo,v));   // never render outside [from,to]
     if(p<1)requestAnimationFrame(step);})(t0);
 }
 
@@ -323,7 +358,7 @@ async function refresh(){
     j('/api/severity'),j('/api/protocols'),j('/api/sessions')]);
   setKpis(s); setThreat(s);
   lastSeries=ts; drawChart();
-  lastSev=sev; lastProto=pr; renderMeter(sev,pr);
+  lastSev=sev; lastProto=pr; renderMeter(sev); renderProtocols(pr);
   lastGeo=geo; drawMap();
   renderCountries(ips); renderMitre(mi); renderAlerts(al);
   renderCreds(cr); renderCommands(cm); renderSessions(se);
@@ -332,6 +367,7 @@ function setKpis(s){
   animate($('#k_total'),s.total_events); animate($('#k_conn'),s.connections);
   animate($('#k_fail'),s.failed_logins); animate($('#k_breach'),s.breaches);
   animate($('#k_cmd'),s.commands); animate($('#k_ips'),s.unique_ips);
+  animate($('#k_proto'),s.protocols||0);
 }
 function setThreat(s){
   let lvl='LOW',c='--low';
@@ -344,7 +380,7 @@ function setThreat(s){
 }
 
 /* ---- severity meter ---- */
-function renderMeter(sev,proto){
+function renderMeter(sev){
   const map={}; (sev||[]).forEach(r=>map[r.severity]=r.n);
   const total=Object.values(map).reduce((a,b)=>a+b,0)||1;
   const m=$('#meter'); m.innerHTML='';
@@ -352,8 +388,63 @@ function renderMeter(sev,proto){
     i.style.width=(map[k]/total*100)+'%'; i.style.background=SEV(k); i.title=`${k}: ${map[k]}`; m.appendChild(i);} });
   $('#slegend').innerHTML=SEVORDER.map(k=>`<div class="r"><span class="sw" style="background:${SEV(k)}"></span>
     <span class="nm">${k}</span><span class="v">${map[k]||0}</span></div>`).join('');
-  const pt=(proto||[]).map(p=>`<span class="pp">${p.protocol}: ${p.n}</span>`).join('');
-  $('#protorow').innerHTML=`<span class="eyebrow">protocols</span>${pt||'<span class="pp">—</span>'}`;
+}
+
+/* ---- protocol coverage ---- */
+function renderProtocols(proto){
+  const rows=(proto||[]).filter(p=>p.protocol);
+  const el=$('#protogrid');
+  if(!rows.length){el.innerHTML='<div class="empty">No protocol activity yet — run a simulation</div>';}
+  else{
+    const max=Math.max(...rows.map(r=>r.n));
+    el.innerHTML=rows.map(r=>{
+      const band=lvlBand(r.top_level||0), c=SEV(band);
+      const hp=r.honeypot||'cowrie', hpc=hp==='dionaea'?' dio':hp==='webtrap'?' web':'';
+      const act=r.protocol===feedProto?' active':'';
+      return `<div class="pcard${act}" data-proto="${esc(r.protocol)}" style="--sevc:${c}"
+          title="Click to filter the live feed to ${esc(r.protocol)}">
+        <div class="ph"><span class="pname">${esc(r.protocol)}</span>
+          <span class="hp${hpc}">${esc(hp)}</span></div>
+        <div class="pn">${r.n}</div>
+        <div class="pmeta">${r.ips||0} IP${r.ips===1?'':'s'} · max lvl ${r.top_level||0}</div>
+        <div class="ptrack"><span class="pfill" style="width:${r.n/max*100}%"></span></div>
+      </div>`;}).join('');
+    el.querySelectorAll('.pcard').forEach(card=>
+      card.onclick=()=>selectProtocol(card.dataset.proto===feedProto?'':card.dataset.proto, true));
+  }
+  // keep the feed's protocol filter chips in sync with observed protocols
+  const chips=$('#protofilters');
+  const have=new Set([...chips.querySelectorAll('button')].map(b=>b.dataset.p));
+  rows.map(r=>r.protocol).forEach(p=>{
+    if(!have.has(p)){ const b=document.createElement('button'); b.dataset.p=p; b.textContent=p;
+      b.onclick=()=>selectProtocol(p); chips.appendChild(b); }
+  });
+}
+// single source of truth for the active protocol: syncs chips, cards + feed
+function selectProtocol(proto, scroll){
+  feedProto=proto||'';
+  $$('#protofilters button').forEach(x=>x.classList.toggle('act',(x.dataset.p||'')===feedProto));
+  $$('#protogrid .pcard').forEach(c=>c.classList.toggle('active',c.dataset.proto===feedProto&&feedProto!==''));
+  applyFeed();
+  if(scroll)$('#feed').scrollIntoView({behavior:'smooth',block:'center'});
+}
+$$('#protofilters button').forEach(b=>b.onclick=()=>selectProtocol(b.dataset.p||''));
+
+// render the feed for the current severity + protocol filter. With a protocol
+// selected we query the backend (so the drill-down shows that protocol's real
+// history, not just what's in the in-memory live buffer); otherwise we render
+// the live buffer locally.
+async function applyFeed(){
+  if(feedProto){
+    try{
+      const evs=await j(`/api/events?protocol=${encodeURIComponent(feedProto)}&min_level=${feedFilter}&limit=70`);
+      feedCount=evs.length;
+      feed.innerHTML=evs.length?evs.map(ev=>`<div class="frow">${rowHtml(ev)}</div>`).join('')
+        :'<div class="empty">No matching events</div>';
+    }catch(e){ rerenderFeed(); }
+  }else{
+    rerenderFeed();
+  }
 }
 
 /* ---- activity chart ---- */
@@ -437,7 +528,7 @@ function drawMap(){
     if(!hit){tip.style.opacity=0;return;}
     const p=hit.p;
     tip.innerHTML=`<b>${flag(p.country_code)} ${p.city?esc(p.city)+', ':''}${esc(p.country||'?')}</b><br>`
-      +`<span class="k">${p.ip}</span> · ${p.events} events`+(p.abuse_score!=null?` · abuse ${p.abuse_score}%`:'');
+      +`<span class="k">${esc(p.ip)}</span> · ${p.events} events`+(p.abuse_score!=null?` · abuse ${p.abuse_score}%`:'');
     let tx=hit.px+12; if(tx>c.clientWidth-160)tx=hit.px-tip.offsetWidth-12;
     tip.style.left=tx+'px';tip.style.top=(hit.py-10)+'px';tip.style.opacity=1;});
   c.addEventListener('mouseleave',()=>tip.style.opacity=0);
@@ -457,11 +548,12 @@ function renderCountries(ips){
 
 /* ---- mitre ---- */
 const MITRE={T1110:'Brute Force',T1078:'Valid Accounts',T1059:'Command Exec',T1105:'Ingress Tool Transfer',
-  T1046:'Service Discovery',T1204:'User Execution',T1210:'Exploit Remote Svc',T1572:'Protocol Tunneling',T1082:'System Info'};
+  T1046:'Service Discovery',T1204:'User Execution',T1210:'Exploit Remote Svc',T1572:'Protocol Tunneling',T1082:'System Info',
+  T1595:'Active Scanning',T1190:'Exploit Public App',T1588:'Obtain Capabilities'};
 function renderMitre(rows){
   const el=$('#mitre'); if(!rows.length){el.innerHTML='<div class="empty">No techniques yet</div>';return;}
   const max=Math.max(...rows.map(r=>r.n));
-  el.innerHTML=rows.map(r=>`<div class="brow"><span class="lab">${r.mitre} <small>${MITRE[r.mitre]||''}</small></span>
+  el.innerHTML=rows.map(r=>`<div class="brow"><span class="lab">${esc(r.mitre)} <small>${MITRE[r.mitre]||''}</small></span>
     <span class="v">${r.n}</span><span class="track"><span class="fill" style="width:${r.n/max*100}%"></span></span></div>`).join('');
 }
 
@@ -492,8 +584,8 @@ function renderSessions(rows){
   tb.innerHTML=rows.map(r=>{
     const st=r.breach?`<span class="badge" style="background:${cssv('--crit-bg')};color:${cssv('--crit')}">BREACH</span>`
       :`<span class="badge" style="background:${cssv('--info-bg')};color:${cssv('--info')}">probed</span>`;
-    return `<tr><td class="mono">${(r.session||'').substr(0,10)}</td>
-      <td class="mono">${flag(r.country_code)} ${r.src_ip||'—'}</td>
+    return `<tr><td class="mono">${esc((r.session||'').substr(0,10))}</td>
+      <td class="mono">${flag(r.country_code)} ${esc(r.src_ip)||'—'}</td>
       <td class="mono">${r.failed||0}</td><td class="mono">${r.events}</td>
       <td class="mono" style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(r.top_cmd)||'—'}</td>
       <td>${st}</td></tr>`;}).join('');
@@ -501,15 +593,16 @@ function renderSessions(rows){
 
 /* ---- live feed ---- */
 const feed=$('#feed'); let feedCount=0;
-function passFilter(ev){ return (ev.level||0)>=feedFilter; }
+function passFilter(ev){ return (ev.level||0)>=feedFilter && (!feedProto||ev.protocol===feedProto); }
 function rowHtml(ev){
   const sev=ev.severity||'info';
   const detail=ev.command?`<b>CMD</b> ${esc(ev.command)}`
     :(ev.event_type||'').includes('login')?`<b>${esc(ev.username)||'∅'}</b>:${esc(ev.password)||'∅'}`
-    :(ev.event_type||'');
+    :esc(ev.message||ev.event_type||'');
   const tag=ev.rule_id?`rule ${ev.rule_id}`:'';
   return `<span class="ts">${fmtTs(ev.ts)}</span><span class="sd" style="background:${SEV(sev)}"></span>
-    <span class="ip"><span class="flag">${flag(ev.country_code)}</span>${ev.src_ip||'—'}</span>
+    <span class="ip"><span class="flag">${flag(ev.country_code)}</span>${esc(ev.src_ip)||'—'}</span>
+    <span class="pr" title="${esc(ev.honeypot||'')}">${esc(ev.protocol||'—')}</span>
     <span class="msg">${detail}</span>
     <span class="tg" style="background:${sev==='info'?'var(--panel-2)':cssv(SEVBG[sev])};color:${SEV(sev)}">${tag}</span>`;
 }
@@ -528,7 +621,7 @@ function rerenderFeed(){
 }
 $$('#filters button').forEach(b=>b.onclick=()=>{
   $$('#filters button').forEach(x=>x.classList.remove('act'));b.classList.add('act');
-  feedFilter=+b.dataset.f;rerenderFeed();});
+  feedFilter=+b.dataset.f;applyFeed();});
 
 /* ---- websocket ---- */
 let ws,wsRetry=0;

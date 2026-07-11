@@ -158,7 +158,30 @@
     <description>Dionaea: Outil d'attaque détecté (user-agent/fingerprint)</description>
     <group>tool_detection,attack,</group>
     <mitre_id>T1588</mitre_id>
-    <mitre_tactic>TA0002</mitre_tactic>
+    <mitre_tactic>TA0042</mitre_tactic>
+  </rule>
+
+  <!-- Identifiant FTP capturé -->
+  <rule id="100216" level="6">
+    <if_sid>100200</if_sid>
+    <match>ftp</match>
+    <match>PASS </match>
+    <description>Dionaea: Identifiant FTP capturé sur tentative de connexion</description>
+    <group>ftp,credential-access,attack,</group>
+    <mitre_id>T1110</mitre_id>
+    <mitre_tactic>TA0006</mitre_tactic>
+  </rule>
+
+  <!-- Brute-force FTP -->
+  <rule id="100217" level="8">
+    <if_sid>100216</if_sid>
+    <same_source_ip />
+    <frequency>5</frequency>
+    <timeframe>60</timeframe>
+    <description>Dionaea: Attaque brute-force FTP (>=5 tentatives / 60s)</description>
+    <group>ftp,bruteforce,attack,</group>
+    <mitre_id>T1110</mitre_id>
+    <mitre_tactic>TA0006</mitre_tactic>
   </rule>
 
 </group>

@@ -8,6 +8,7 @@ data/
 __pycache__/
 *.pyc
 .venv/
+.pytest_cache/
 
 # os
 .DS_Store

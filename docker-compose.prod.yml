@@ -1,0 +1,100 @@
+# Multi-protocol Honeypot — INTERNET-FACING production compose
+# ------------------------------------------------------------
+# Use this file (NOT docker-compose.yml) when deploying to a public VPS such as
+# an Azure VM, so the honeypots bind the REAL ports attackers scan:
+#
+#   docker compose -f docker-compose.prod.yml up -d --build
+#
+# Differences from the local file:
+#   * Cowrie/Dionaea/webtrap publish the standard ports (22, 23, 21, 445, 80, …).
+#   * Admin SSH to the host must be moved OFF port 22 first (see docs/DEPLOY_AZURE.md)
+#     because Cowrie now owns 22.
+#   * The dashboard (8080) and your admin SSH (2200) must be locked to your own IP
+#     in the cloud firewall / Network Security Group — they are NOT for the world.
+#   * DASH_USER / DASH_PASS should be set in .env: the dashboard is now reachable
+#     from the internet, so require a login.
+#
+# This mirrors docker-compose.yml's build contexts, volumes and env — only the
+# port mappings change. Keep the two in sync if you edit service internals.
+
+name: honeypot-analytics
+
+services:
+  cowrie:
+    image: cowrie/cowrie:latest
+    container_name: hp-cowrie
+    restart: unless-stopped
+    ports:
+      - "22:2222"       # SSH honeypot   (host 22  -> Cowrie 2222)
+      - "23:2223"       # Telnet honeypot(host 23  -> Cowrie 2223)
+    volumes:
+      - cowrie-logs:/cowrie/cowrie-git/var/log/cowrie
+    networks: [honeynet]
+
+  dionaea:
+    image: dinotools/dionaea:latest
+    container_name: hp-dionaea
+    restart: unless-stopped
+    ports:
+      - "21:21"         # FTP
+      - "445:445"       # SMB
+      - "1433:1433"     # MSSQL
+      - "3306:3306"     # MySQL
+      # NOTE: Dionaea's HTTP (container :80) is intentionally NOT published here.
+      # The self-written webtrap below is the better HTTP sensor and owns host :80.
+    volumes:
+      - dionaea-logs:/opt/dionaea/var/log
+    networks: [honeynet]
+
+  webtrap:
+    build: ./webhoneypot
+    container_name: hp-webtrap
+    restart: unless-stopped
+    ports:
+      - "80:80"         # self-written HTTP honeypot (fake admin/login panels)
+    volumes:
+      - webtrap-logs:/logs/webtrap
+    networks: [honeynet]
+
+  analytics:
+    build: ./ingest
+    container_name: hp-analytics
+    restart: unless-stopped
+    depends_on: [cowrie]
+    ports:
+      # Dashboard + API. Bound on the host, but LOCK THIS TO YOUR IP in the
+      # Azure NSG — do not expose analytics to the internet.
+      - "8080:8080"
+    environment:
+      - COWRIE_LOG=/logs/cowrie/cowrie.json
+      - DIONAEA_LOG=/logs/dionaea/dionaea/dionaea.log
+      - WEBTRAP_LOG=/logs/webtrap/webtrap.json
+      - DB_PATH=/data/honeypot.db
+      - ALERT_LEVEL=${ALERT_LEVEL:-10}
+      - ABUSEIPDB_KEY=${ABUSEIPDB_KEY:-}
+      - DASH_USER=${DASH_USER:-}
+      - DASH_PASS=${DASH_PASS:-}
+      - RETENTION_DAYS=${RETENTION_DAYS:-14}
+      - TELEGRAM_TOKEN=${TELEGRAM_TOKEN:-}
+      - TELEGRAM_CHAT_ID=${TELEGRAM_CHAT_ID:-}
+      - SMTP_HOST=${SMTP_HOST:-}
+      - SMTP_PORT=${SMTP_PORT:-587}
+      - SMTP_USER=${SMTP_USER:-}
+      - SMTP_PASS=${SMTP_PASS:-}
+      - ALERT_TO=${ALERT_TO:-}
+      - REPORT_EVERY_SECONDS=${REPORT_EVERY_SECONDS:-86400}
+    volumes:
+      - cowrie-logs:/logs/cowrie:ro
+      - dionaea-logs:/logs/dionaea:ro
+      - webtrap-logs:/logs/webtrap:ro
+      - ./data:/data
+    networks: [honeynet]
+
+volumes:
+  cowrie-logs:
+  dionaea-logs:
+  webtrap-logs:
+
+networks:
+  honeynet:
+    driver: bridge

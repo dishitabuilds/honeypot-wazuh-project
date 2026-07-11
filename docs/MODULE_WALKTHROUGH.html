@@ -1,0 +1,615 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Honeypot Project — Module-by-Module Walkthrough</title>
+<style>
+  :root{
+    --ink:#1c2333; --dim:#5a6478; --faint:#8b93a7; --line:#e3e7ef;
+    --bg:#ffffff; --panel:#f6f8fb; --accent:#0c7a85; --accent-soft:#e3f2f4;
+    --crit:#c23b41; --high:#c77414; --warn-bg:#fdf6ec; --code-bg:#f2f4f8;
+    --mono:ui-monospace,"Cascadia Code",Consolas,Menlo,monospace;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);line-height:1.65;
+    font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;font-size:15.5px}
+  .page{max-width:880px;margin:0 auto;padding:48px 28px 80px}
+  h1{font-size:30px;line-height:1.2;margin:0 0 6px}
+  .subtitle{color:var(--dim);font-size:15px;margin-bottom:4px}
+  .meta{font-family:var(--mono);font-size:12px;color:var(--faint)}
+  h2{font-size:21px;margin:52px 0 12px;padding-bottom:8px;border-bottom:2px solid var(--line)}
+  h3{font-size:16.5px;margin:30px 0 8px}
+  h2 .num{color:var(--accent);font-family:var(--mono);font-size:15px;margin-right:8px}
+  p{margin:10px 0}
+  code{font-family:var(--mono);font-size:.86em;background:var(--code-bg);
+    padding:1.5px 5px;border-radius:4px}
+  pre{background:#101724;color:#dbe2f0;border-radius:10px;padding:16px 18px;
+    overflow-x:auto;font-size:12.5px;line-height:1.55}
+  pre code{background:none;padding:0;color:inherit;font-size:inherit}
+  table{width:100%;border-collapse:collapse;font-size:13.5px;margin:14px 0}
+  th{text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.06em;
+    color:var(--faint);padding:7px 9px;border-bottom:2px solid var(--line)}
+  td{padding:7px 9px;border-bottom:1px solid var(--line);vertical-align:top}
+  .tablewrap{overflow-x:auto}
+  ul,ol{padding-left:24px;margin:10px 0}
+  li{margin:5px 0}
+  .file{display:inline-block;font-family:var(--mono);font-size:12.5px;color:var(--accent);
+    background:var(--accent-soft);padding:2px 9px;border-radius:6px;margin-bottom:4px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;
+    padding:16px 20px;margin:16px 0}
+  .card.q{border-left:4px solid var(--accent)}
+  .card.warn{border-left:4px solid var(--high);background:var(--warn-bg)}
+  .card b.tag{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.07em;
+    color:var(--faint);margin-bottom:6px}
+  .toc{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:18px 24px}
+  .toc ol{margin:6px 0;columns:2;column-gap:36px}
+  .toc a{color:var(--ink);text-decoration:none}
+  .toc a:hover{color:var(--accent)}
+  .flow{font-family:var(--mono);font-size:12.5px;background:#101724;color:#dbe2f0;
+    border-radius:10px;padding:18px;overflow-x:auto;white-space:pre;line-height:1.6}
+  .kv{display:grid;grid-template-columns:170px 1fr;gap:4px 16px;font-size:14px;margin:12px 0}
+  .kv dt{color:var(--dim);font-weight:600}
+  .kv dd{margin:0}
+  .pill{font-family:var(--mono);font-size:11px;padding:1px 8px;border-radius:999px;
+    background:var(--accent-soft);color:var(--accent);white-space:nowrap}
+  .footer{margin-top:60px;padding-top:18px;border-top:1px solid var(--line);
+    font-size:12.5px;color:var(--faint)}
+  @media (max-width:640px){ .toc ol{columns:1} .kv{grid-template-columns:1fr} }
+  @media print{
+    body{font-size:11.5pt} .page{max-width:none;padding:0}
+    pre,.flow{white-space:pre-wrap;word-break:break-word}
+    h2{break-after:avoid} .card,table,pre{break-inside:avoid}
+    a{color:inherit;text-decoration:none}
+    .noprint{display:none}
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+<h1>Multi-protocol Honeypot &amp; Real-Time Threat Analytics</h1>
+<div class="subtitle">Module-by-module walkthrough — everything you need to explain, defend, and extend this project.</div>
+<div class="meta">honeypot-wazuh-project · generated 2026-07-11</div>
+<p class="noprint" style="font-size:13px;color:var(--faint)">💡 To get a PDF: press <b>Ctrl+P</b> in your browser and choose “Save as PDF”.</p>
+
+<div class="toc">
+<b>Contents</b>
+<ol>
+  <li><a href="#pitch">The 30-second pitch</a></li>
+  <li><a href="#life">Life of one attack event</a></li>
+  <li><a href="#compose">docker-compose.yml</a></li>
+  <li><a href="#dockerfile">Dockerfile &amp; requirements</a></li>
+  <li><a href="#main">main.py — the FastAPI app</a></li>
+  <li><a href="#collector">collector.py — log tailing</a></li>
+  <li><a href="#detect">detect.py — detection engine</a></li>
+  <li><a href="#enrich">enrich.py — threat intel</a></li>
+  <li><a href="#db">db.py — storage &amp; queries</a></li>
+  <li><a href="#alerts">alerts.py — notifications</a></li>
+  <li><a href="#report">report.py — HTML reports</a></li>
+  <li><a href="#simulate">simulate.py — demo traffic</a></li>
+  <li><a href="#dashboard">dashboard/index.html</a></li>
+  <li><a href="#config">config/ — Wazuh rules</a></li>
+  <li><a href="#scripts">scripts/ — production installers</a></li>
+  <li><a href="#rules">Detection rule reference</a></li>
+  <li><a href="#qa">Questions you'll get asked</a></li>
+  <li><a href="#limits">Known limitations to own</a></li>
+  <li><a href="#demo">5-minute demo script</a></li>
+  <li><a href="#glossary">Glossary</a></li>
+</ol>
+</div>
+
+<h2 id="pitch"><span class="num">1</span>The 30-second pitch</h2>
+<p>“I run three intentionally vulnerable decoy sensors — <b>Cowrie</b>, which fakes an SSH/Telnet
+server with a complete fake Linux shell; <b>Dionaea</b>, which fakes SMB, FTP, HTTP and
+database services; and <b>WebTrap</b>, a low-interaction HTTP honeypot I wrote from scratch that
+serves fake WordPress/phpMyAdmin/admin panels and exposed <code>.env</code>/<code>.git</code>
+files, capturing every request path, User-Agent and submitted credential. Attackers who find them
+think they've breached a real machine, and every credential they try, every command they run, and
+every file they attempt to download is logged.
+I then built my own <b>real-time analytics pipeline</b> in Python: it tails the honeypot logs,
+applies detection rules I wrote for the <b>Wazuh SIEM</b> (severity levels, rule IDs,
+<b>MITRE ATT&amp;CK</b> technique mapping, brute-force correlation), enriches attacker IPs with
+geolocation and reputation data, stores everything in SQLite, and streams it to a live web
+dashboard over WebSocket. High-severity events fire Telegram/email alerts, and the system
+auto-generates HTML threat reports. The same rule files also load into a full Wazuh manager for
+a production deployment — the local pipeline and the SIEM share one detection logic.”</p>
+
+<div class="card q">
+<b class="tag">Why this design is worth defending</b>
+The project isn't “I installed two tools.” The honeypots are off-the-shelf sensors, but
+everything between their raw log files and the analyst's screen — collection, normalisation,
+detection, correlation, enrichment, storage, alerting, reporting, visualisation — is custom code
+you can explain line by line. That's the part interviewers care about.
+</div>
+
+<h2 id="life"><span class="num">2</span>Life of one attack event</h2>
+<p>Memorise this flow — it is the spine of the whole project. Suppose an attacker fails an SSH
+login against Cowrie:</p>
+
+<div class="flow">attacker ──ssh──▶ Cowrie (container)
+                    │ appends JSON line to cowrie.json  (shared Docker volume)
+                    ▼
+collector.py  _tail() picks up the new line ──▶ json.loads ──▶ _row_from_cowrie()
+                    │ normalised event row
+                    ▼
+detect.py     detect_cowrie() fires rules 100101 (+100108 if password present,
+              +100111 if default account, +100107 if ≥5 fails/60s from that IP)
+              top_detection() keeps the highest level as the row's severity
+                    ▼
+enrich.py     enrich_ip() → cache hit? else ip-api geolocation (+AbuseIPDB if key)
+                    ▼
+db.py         insert_event() → SQLite events table, returns row id
+                    ▼
+main.py       Hub.broadcast() → every connected dashboard gets it via WebSocket
+                    ▼
+alerts.py     maybe_alert() → level ≥ ALERT_LEVEL? send Telegram / email
+                    ▼
+dashboard     row appears in live feed &lt;1s; charts refresh (debounced)</div>
+
+<p>Every module below is one box in that flow. If you can narrate this diagram from memory,
+you can answer 80% of questions by walking to the relevant box.</p>
+
+<h2 id="compose"><span class="num">3</span>docker-compose.yml — the deployment</h2>
+<span class="file">docker-compose.yml</span>
+<p><b>What it does:</b> defines the whole local stack: three containers on one private bridge
+network (<code>honeynet</code>), plus the volumes that connect them.</p>
+<dl class="kv">
+  <dt>cowrie</dt><dd>official image, SSH honeypot on host port <b>2222</b>, Telnet on <b>2223</b>. Writes logs to the named volume <code>cowrie-logs</code>.</dd>
+  <dt>dionaea</dt><dd>community image, FTP on <b>2121</b>→21, SMB on <b>8445</b>→445, HTTP on <b>8088</b>→80, MSSQL <b>11433</b>→1433, MySQL <b>13306</b>→3306. Writes to <code>dionaea-logs</code>.</dd>
+  <dt>analytics</dt><dd>built from <code>./ingest</code>. Mounts both log volumes <b>read-only</b>, mounts host <code>./data</code> for the SQLite DB + reports, serves the dashboard on <b>8080</b>. All alert/intel config arrives as environment variables with safe defaults (<code>${VAR:-}</code>).</dd>
+</dl>
+<ul>
+  <li><b>Why non-standard host ports?</b> Safety for a local run (nothing collides with the host,
+  and you're not accidentally exposing port 22), plus Windows itself reserves 445. On an
+  internet-facing sensor you'd remap to the real ports so scanners find the services.</li>
+  <li><b>Why shared volumes instead of a network protocol?</b> The honeypots only know how to
+  write log files. A shared volume mounted <code>:ro</code> into the analytics container means the
+  analytics service can never modify honeypot state — one-way data flow by construction.</li>
+  <li><b>Why is <code>./data</code> a bind mount?</b> So the database and reports survive
+  <code>docker compose down</code> and are directly visible on the host.</li>
+</ul>
+
+<h2 id="dockerfile"><span class="num">4</span>ingest/Dockerfile &amp; requirements.txt</h2>
+<span class="file">ingest/Dockerfile</span> <span class="file">ingest/requirements.txt</span>
+<p>Slim Python 3.12 base image; copies <code>requirements.txt</code> first so Docker's layer
+cache skips reinstalling dependencies when only app code changes; runs
+<code>uvicorn app.main:app</code> on port 8080. A <code>HEALTHCHECK</code> polls
+<code>/api/health</code> every 30&nbsp;s so Docker can mark the container unhealthy.</p>
+<p>Only <b>three dependencies</b>: <code>fastapi</code> (web framework),
+<code>uvicorn</code> (ASGI server), <code>httpx</code> (async HTTP client for geo/intel/Telegram
+calls). Everything else — SQLite, asyncio, smtplib, ipaddress — is the Python standard library.
+Small dependency surface is a deliberate talking point: fewer supply-chain risks, fast build,
+easy audit.</p>
+
+<h2 id="main"><span class="num">5</span>main.py — the FastAPI application</h2>
+<span class="file">ingest/app/main.py</span>
+<p><b>What it does:</b> the entry point. It wires everything together: starts the database,
+launches the collectors as background tasks, exposes the REST API, runs the WebSocket hub, and
+serves the dashboard.</p>
+<h3>The three pieces</h3>
+<ul>
+  <li><b><code>lifespan()</code></b> — FastAPI's startup/shutdown hook (an
+  <code>@asynccontextmanager</code>). On startup it calls <code>db.init()</code>, builds the
+  <code>Pipeline</code>, and spawns <b>three background asyncio tasks</b>: tail Cowrie, tail
+  Dionaea, and write a periodic report. On shutdown it cancels them. This is why no separate
+  worker process is needed — collectors and API share one event loop.</li>
+  <li><b><code>Hub</code></b> — the WebSocket fan-out. Keeps a <code>set</code> of connected
+  dashboard sockets; <code>broadcast()</code> sends each new event to all of them (stripping the
+  bulky <code>raw</code> field), and quietly drops any socket that errors (a closed browser tab).</li>
+  <li><b>REST endpoints</b> — every <code>GET /api/…</code> is a one-line wrapper around a query
+  function in <code>db.py</code>: <code>/api/summary</code>, <code>/api/events</code>,
+  <code>/api/alerts</code>, <code>/api/mitre</code>, <code>/api/timeseries</code>,
+  <code>/api/ips</code>, <code>/api/geo</code>, <code>/api/credentials</code>,
+  <code>/api/commands</code>, <code>/api/sessions</code>. Two special ones:
+  <code>POST /api/simulate</code> (clamps <code>sessions</code> to 1–40 and feeds the simulator
+  into the live pipeline) and <code>GET /api/report</code> (generates and downloads a fresh HTML
+  report).</li>
+</ul>
+<div class="card q">
+<b class="tag">If asked: “why async / why FastAPI?”</b>
+The workload is I/O-bound: waiting on log lines, HTTP calls to geo APIs, WebSocket pushes.
+One asyncio event loop handles all of it concurrently without threads. FastAPI gives async
+endpoints, WebSocket support, and automatic OpenAPI docs (<code>/docs</code>) with almost no
+boilerplate.
+</div>
+
+<h2 id="collector"><span class="num">6</span>collector.py — tailing &amp; orchestration</h2>
+<span class="file">ingest/app/collector.py</span>
+<p><b>What it does:</b> watches both honeypot log files, turns each raw line into a clean,
+uniform “event row”, and drives every row through the full pipeline
+(detect → enrich → store → broadcast → alert).</p>
+<h3>_tail() — the file follower</h3>
+<p>An async generator that behaves like <code>tail -f</code>, hardened for real log files:</p>
+<ul>
+  <li>Waits politely (1&nbsp;s sleeps) until the file exists — the honeypot may not have logged anything yet.</li>
+  <li><b>Seeks to the end</b> on open, so restarting the analytics container doesn't re-ingest history.</li>
+  <li>When no new line is available it sleeps 0.5&nbsp;s (non-blocking — the API stays responsive).</li>
+  <li><b>Rotation/truncation detection:</b> it remembers the file's inode; if the inode changes
+  (logrotate replaced the file) or the file is suddenly smaller than the current read offset
+  (truncated), it reopens the file. Without this, tailing silently stops on the first rotation —
+  a classic production bug this code explicitly handles.</li>
+</ul>
+<h3>Normalisation</h3>
+<ul>
+  <li><b>Cowrie</b> logs newline-delimited JSON. <code>_row_from_cowrie()</code> maps its fields
+  into the common row shape: <code>eventid → event_type</code>, <code>input → command</code>,
+  plus src_ip/ports, session id, username, password. The raw JSON is kept (truncated to 4000
+  chars) for forensics.</li>
+  <li><b>Dionaea</b> logs free text, so <code>_row_from_dionaea()</code> applies a regex
+  (<code>_DIO_CONN</code>) that extracts the protocol (smb/ftp/http/mssql/mysql/epmap) and source
+  IPv4 from “connection” lines; anything not matching is ignored.</li>
+</ul>
+<h3>Pipeline._handle() — the heart of the project</h3>
+<p>One method runs the entire chain for every event, live or synthetic:</p>
+<pre><code>dets = detect(protocol, row)          # all matching rules
+top  = top_detection(dets)            # highest level wins → row's severity/rule/MITRE
+intel = await enrich.enrich_ip(...)   # cached geo + reputation
+row["id"] = db.insert_event(row)      # persist, get primary key
+await self._broadcast(row)            # push to every dashboard (WebSocket)
+await alerts.maybe_alert(...)         # Telegram/email if level ≥ threshold</code></pre>
+<p><code>ingest_synthetic()</code> is the simulator's entry point — it funnels fake events
+through <b>this exact same method</b>, which is your answer to “is the demo faked?”: the demo
+fakes the <i>input</i>, never the processing.</p>
+
+<h2 id="detect"><span class="num">7</span>detect.py — the detection engine</h2>
+<span class="file">ingest/app/detect.py</span>
+<p><b>What it does:</b> a Python port of your Wazuh rule files. Each event is checked against
+the rules; every match produces a <code>Detection</code> carrying a rule id, a Wazuh-scale
+severity level (0–15), a description, a MITRE ATT&amp;CK technique + tactic, and a category.</p>
+<h3>Key mechanics</h3>
+<ul>
+  <li><b><code>band()</code></b> maps the numeric level to the dashboard's severity bands:
+  ≥10 critical, ≥8 high, ≥6 medium, ≥3 low, else info.</li>
+  <li><b>Rules stack.</b> One failed login can fire up to four rules at once: 100101 (attempt)
+  + 100108 (password captured) + 100111 (default account like root/admin) + 100107 (brute
+  force). <code>top_detection()</code> picks the highest level for the row's badge, but all
+  matches ride along to the dashboard in <code>all_rules</code>.</li>
+  <li><b><code>BruteForceTracker</code></b> — the stateful correlation rule. Per source IP it
+  keeps a <code>deque</code> of failure timestamps; on each failure it drops entries older than
+  60&nbsp;s and fires rule 100107 when ≥5 remain. A <code>_fired</code> map suppresses
+  re-firing more than once per window. This is the direct port of Wazuh's
+  <code>&lt;frequency&gt;5&lt;/frequency&gt;&lt;timeframe&gt;60&lt;/timeframe&gt;</code> on rule
+  100107 — the sliding-window algorithm is the single most likely “explain this code” target.</li>
+  <li><b>Command inspection:</b> any shell command fires 100103 (level 8); if it contains
+  wget/curl/nc/netcat/nmap/scp/tftp/ncat, 100104 (level 10) fires too — the attacker is pulling
+  in tooling (MITRE T1105, Ingress Tool Transfer).</li>
+  <li><b>Rule 100150 (level 10, honeypot breach)</b> — fires on
+  <code>cowrie.login.success</code>. This rule is <b>your addition</b>, not in the original XML:
+  the original ruleset never flagged the moment an attacker actually got in. Know this — it's
+  your best “what did you improve?” answer.</li>
+  <li><b>Dionaea detection</b> is keyword-based on the text message: SMB/FTP/HTTP connections
+  (recon, levels 5–6), “stored binary” (malware captured, level 12), exploit names like
+  MS17-010/EternalBlue (level 10), shellcode/meterpreter markers (level 11).</li>
+</ul>
+
+<h2 id="enrich"><span class="num">8</span>enrich.py — threat-intel enrichment</h2>
+<span class="file">ingest/app/enrich.py</span>
+<p><b>What it does:</b> answers “who is attacking me?” for each source IP: country, city,
+lat/lon, ISP/org/ASN (via the free <b>ip-api.com</b>), plus an optional <b>AbuseIPDB</b>
+reputation score (0–100) and Tor-exit flag when an API key is configured.</p>
+<ul>
+  <li><b>Caching:</b> results are stored in the <code>ip_intel</code> table; every later event
+  from the same IP is a database hit, not an API call. Essential because ip-api's free tier is
+  rate-limited (~45 req/min) and a brute-force burst can be hundreds of events from one IP.</li>
+  <li><b>Private-IP short-circuit:</b> RFC1918/loopback addresses (your own Docker network when
+  you test by hand) are labelled <code>Lab network / LAB</code> locally — no pointless API call,
+  and the dashboard shows a 🧪 instead of a wrong flag.</li>
+  <li><b>Fail-open:</b> every external call is wrapped in try/except returning <code>{}</code>.
+  If the internet is down, events still flow — they're just less decorated. Enrichment is
+  best-effort by design; capture must never block on it.</li>
+</ul>
+
+<h2 id="db"><span class="num">9</span>db.py — storage &amp; the query layer</h2>
+<span class="file">ingest/app/db.py</span>
+<p><b>What it does:</b> owns the SQLite database: schema, the single write path, and one query
+function per dashboard panel.</p>
+<h3>Schema (two tables)</h3>
+<ul>
+  <li><b><code>events</code></b> — one row per honeypot event: timestamp, protocol, event type,
+  src ip/port, session, username, password, command, plus the detection verdict (severity,
+  level, rule_id, rule_desc, mitre, tactic, category) and truncated raw log. Indexed on
+  <code>ts</code>, <code>src_ip</code>, <code>event_type</code>, <code>level</code> — exactly the
+  columns the dashboard filters and groups on.</li>
+  <li><b><code>ip_intel</code></b> — the enrichment cache keyed by IP, with first_seen /
+  last_seen / hits counters.</li>
+</ul>
+<h3>Concurrency story (know this cold)</h3>
+<p>One shared connection with <code>check_same_thread=False</code>, guarded by a
+<code>threading.Lock</code>. The collector and the API handlers run in the same asyncio event
+loop, so writes can't truly race — the lock is defence-in-depth so a future thread can't corrupt
+a write. Honest framing: SQLite is the right size for a single-sensor lab (zero ops, one file,
+easy backup); at production scale this is exactly what Wazuh's indexer replaces.</p>
+<h3>Query techniques worth naming</h3>
+<ul>
+  <li><code>SUM(event_type = 'cowrie.login.failed')</code> — SQLite booleans are 0/1, so SUM of a
+  comparison is a conditional count. Used all over <code>summary()</code> and
+  <code>timeseries()</code>.</li>
+  <li><code>strftime('%Y-%m-%dT%H:%M:00Z', ts)</code> — truncates timestamps to the minute to
+  bucket events for the activity chart.</li>
+  <li><code>LEFT JOIN ip_intel</code> in <code>top_ips()</code> / <code>recent_sessions()</code>
+  — events still show even if enrichment failed for that IP.</li>
+  <li><code>recent_sessions()</code> uses a correlated subquery to pull each session's
+  highest-severity command — one query instead of N+1.</li>
+</ul>
+
+<h2 id="alerts"><span class="num">10</span>alerts.py — notifications</h2>
+<span class="file">ingest/app/alerts.py</span>
+<p><b>What it does:</b> pushes high-severity events to a human. If an event's level is ≥
+<code>ALERT_LEVEL</code> (default 10 = critical band), it formats a compact message (level, rule
+description, IP + country, event type, MITRE id, the command/username involved) and sends it via
+the <b>Telegram Bot API</b> (simple authenticated POST) and/or <b>SMTP email</b> (STARTTLS,
+optional login).</p>
+<ul>
+  <li><b>Fully optional:</b> with no tokens configured, both branches are skipped — the stack
+  runs out of the box with zero setup.</li>
+  <li><b>Fail-silent:</b> a Telegram outage must never take down ingestion, so send errors are
+  swallowed. Same “capture first, decorate second” philosophy as enrichment.</li>
+  <li>The threshold means you get a page for breaches (level 10), suspicious downloads (10–12),
+  and malware captures (12) — not for every port scan.</li>
+</ul>
+
+<h2 id="report"><span class="num">11</span>report.py — automated reporting</h2>
+<span class="file">ingest/app/report.py</span>
+<p><b>What it does:</b> renders a standalone HTML threat report — KPI summary, alerts by rule,
+top attacker IPs, top credentials tried, top commands — straight from the database queries. No
+template engine, just an f-string with inline CSS, so the file opens anywhere and prints to PDF
+cleanly. Written on two triggers: a background task every <code>REPORT_EVERY_SECONDS</code>
+(default: daily), and on demand via <code>GET /api/report</code> (the dashboard's “Report ↗”
+button). Files land in <code>data/reports/report-YYYYMMDD-HHMM.html</code>.</p>
+
+<h2 id="simulate"><span class="num">12</span>simulate.py — the demo generator</h2>
+<span class="file">ingest/app/simulate.py</span>
+<p><b>What it does:</b> replays realistic attacker sessions so a laptop demo looks like an
+internet-exposed sensor. A locally-run honeypot only ever sees RFC1918 Docker IPs — no geography,
+no reputation — so the simulator uses a fixed list of <b>real, publicly-routable scanner IPs</b>
+(known SSH brute-forcers and Tor exits) purely so geolocation and AbuseIPDB return real data on
+the map.</p>
+<p>Each synthetic session mirrors a genuine Cowrie session's event sequence:
+<code>session.connect</code> → <code>client.version</code> → 3–8 failed logins from common
+username/password lists → ~45% chance of a successful “breach” → recon commands
+(<code>whoami</code>, <code>uname -a</code>, <code>cat /etc/passwd</code>…) → 70% chance of a
+malicious command (wget/curl a miner, netcat reverse shell) → <code>session.closed</code>.</p>
+<div class="card q">
+<b class="tag">The one-line defence</b>
+“The simulator fabricates <i>input</i>, never <i>results</i> — every synthetic event goes through
+<code>Pipeline.ingest_synthetic()</code>, i.e. the identical detect → enrich → store → broadcast
+path as live traffic. And you can bypass it entirely: SSH to port 2222 and attack the honeypot
+yourself.”
+</div>
+
+<h2 id="dashboard"><span class="num">13</span>dashboard/index.html — the live console</h2>
+<span class="file">ingest/dashboard/index.html</span>
+<p><b>What it does:</b> the entire front-end in one file — HTML, CSS and vanilla JS,
+<b>zero external dependencies</b> (no CDN, no chart library). That's deliberate: a honeypot
+network should be isolated, so the dashboard can't rely on internet resources; it also loads
+instantly and has no supply-chain exposure.</p>
+<h3>How it stays live</h3>
+<ul>
+  <li><b>WebSocket feed:</b> connects to <code>/ws</code>; each pushed event is prepended to the
+  feed (capped at 60 rows). Reconnects automatically with linear backoff if the server restarts.</li>
+  <li><b>Debounced refresh:</b> instead of re-fetching all aggregates on every event, a
+  1.2&nbsp;s debounce batches bursts (a brute-force run = dozens of events) into one refresh.
+  A safety-net poll runs every 8&nbsp;s.</li>
+  <li><b>Hand-rolled canvas charts:</b> the activity chart is a scaled area/line drawing with
+  red dots overlaid on minutes containing critical events; the “map” is an equirectangular
+  scatter — longitude/latitude map linearly to x/y (<code>x = (lon+180)/360·W</code>), bubble
+  size = event count, colour = abuse score. Being able to explain that projection formula is a
+  nice flex.</li>
+  <li><b>Details:</b> country flags are generated from ISO codes via Unicode regional-indicator
+  arithmetic (LAB → 🧪 for lab IPs); dark/light theme via CSS variables; commands are HTML-escaped
+  before insertion (attacker-controlled strings!).</li>
+</ul>
+
+<h2 id="config"><span class="num">14</span>config/ — the Wazuh SIEM side</h2>
+<span class="file">config/cowrie_rules.xml</span> <span class="file">config/dionaea_rules.xml</span> <span class="file">config/ossec.conf</span>
+<p><b>What they do:</b> these are the production-path artifacts a real Wazuh manager loads.
+<code>ossec.conf</code> is the agent snippet telling Wazuh <i>which files to ship</i>
+(cowrie.json as JSON, Dionaea logs as syslog). The two XML files are custom rulesets
+(100100–100112 for Cowrie, 100200–100215 for Dionaea) in Wazuh's rule grammar:</p>
+<ul>
+  <li><b>Rule hierarchy:</b> a level-0 parent rule (100100/100200) matches “this is a honeypot
+  event”; children refine it via <code>&lt;if_sid&gt;</code>. Wazuh evaluates children only when
+  the parent matched — that's how rule trees keep evaluation cheap.</li>
+  <li><b>Field vs match:</b> Cowrie rules use <code>&lt;field name="eventid"&gt;</code> against
+  decoded JSON; Dionaea rules use <code>&lt;match&gt;</code> substring/regex on raw syslog text.
+  Your Python <code>detect.py</code> mirrors exactly this split (dict lookups vs keyword search).</li>
+  <li><b>Correlation in XML:</b> rule 100107's <code>frequency=5, timeframe=60</code> is what
+  <code>BruteForceTracker</code> reimplements in Python.</li>
+  <li><b>MITRE tags</b> (<code>&lt;mitre_id&gt;</code>) make alerts appear in Wazuh's ATT&amp;CK
+  dashboard, mapping observed behaviour to standard adversary techniques.</li>
+</ul>
+<div class="card warn">
+<b class="tag">Heads-up before you present</b>
+The rule <code>&lt;description&gt;</code> texts in both XML files are in <b>French</b>
+(“Tentative de connexion SSH/Telnet”, etc.). Be ready to explain why — or translate them to
+English so nobody asks. Also note small intentional divergences between XML and Python: the
+Python engine adds rule 100150 (breach) which the XML lacks, and the XML has a few rules the
+local engine doesn't need (100109 session-closed, 100110 blacklist CDB list, 100210
+same-source-IP frequency, handled locally by the Cowrie tracker instead).
+</div>
+
+<h2 id="scripts"><span class="num">15</span>scripts/ — production installers</h2>
+<span class="file">scripts/install_cowrie.sh</span> <span class="file">scripts/install_dionaea_docker.sh</span> <span class="file">scripts/install_wazuh.sh</span> <span class="file">scripts/install_wazuh_agent.sh</span>
+<p><b>What they do:</b> stand up the <i>production</i> topology on real Linux hosts (VPS/VMs),
+where Wazuh — not the local FastAPI service — is the analytics tier:</p>
+<ul>
+  <li><b>install_cowrie.sh</b> — bare-metal Cowrie: dedicated non-root <code>cowrie</code> user,
+  Python venv, clones the repo, configures SSH on 2222 / Telnet on 2223. (Running a honeypot as
+  an unprivileged user is itself a security control — if someone escapes the fake shell, they
+  land in a nobody account.)</li>
+  <li><b>install_dionaea_docker.sh</b> — Dionaea in Docker with <code>--network host</code> so it
+  binds the real service ports, logs bind-mounted to <code>/opt/dionaea/log</code> where the
+  Wazuh agent reads them.</li>
+  <li><b>install_wazuh.sh</b> — official all-in-one installer (manager + indexer + dashboard,
+  v4.7.5) on the SIEM server.</li>
+  <li><b>install_wazuh_agent.sh</b> — installs the agent on the honeypot host, enrolled to the
+  manager's IP; combined with <code>ossec.conf</code> it ships the honeypot logs to the manager
+  where your XML rules fire.</li>
+</ul>
+
+<h2 id="rules"><span class="num">16</span>Detection rule reference</h2>
+<div class="tablewrap">
+<table>
+<tr><th>Trigger</th><th>Rule</th><th>Level</th><th>Band</th><th>MITRE</th><th>Meaning</th></tr>
+<tr><td>cowrie.session.connect</td><td>100102</td><td>7</td><td>medium</td><td>T1078</td><td>Attacker opened a session</td></tr>
+<tr><td>cowrie.client.version</td><td>100112</td><td>6</td><td>medium</td><td>T1046</td><td>SSH client fingerprint → scan</td></tr>
+<tr><td>cowrie.login.failed</td><td>100101</td><td>5</td><td>low</td><td>T1110</td><td>Login attempt</td></tr>
+<tr><td>… with password present</td><td>100108</td><td>6</td><td>medium</td><td>T1110</td><td>Credential captured</td></tr>
+<tr><td>… username is root/admin/…</td><td>100111</td><td>7</td><td>medium</td><td>T1078</td><td>Default-account attempt</td></tr>
+<tr><td>≥5 failures / 60 s / IP</td><td>100107</td><td>8</td><td>high</td><td>T1110</td><td><b>Brute-force correlation</b></td></tr>
+<tr><td>cowrie.login.success</td><td>100150</td><td>10</td><td>critical</td><td>T1078</td><td><b>Breach</b> — weak credential accepted (your added rule)</td></tr>
+<tr><td>cowrie.command.input</td><td>100103</td><td>8</td><td>high</td><td>T1059</td><td>Command executed</td></tr>
+<tr><td>… containing wget/curl/nc/…</td><td>100104</td><td>10</td><td>critical</td><td>T1105</td><td>Tool download attempt</td></tr>
+<tr><td>cowrie.session.file_download</td><td>100105</td><td>12</td><td>critical</td><td>T1105</td><td>File actually downloaded</td></tr>
+<tr><td>cowrie.direct-tcpip.request</td><td>100106</td><td>12</td><td>critical</td><td>T1572</td><td>SSH tunneling attempt</td></tr>
+<tr><td>Dionaea SMB / FTP / HTTP conn</td><td>100201/06/07</td><td>5–6</td><td>low–med</td><td>T1046</td><td>Service recon</td></tr>
+<tr><td>Dionaea “stored binary”</td><td>100205</td><td>12</td><td>critical</td><td>T1204</td><td>Malware sample captured</td></tr>
+<tr><td>MS17-010 / EternalBlue / …</td><td>100208</td><td>10</td><td>critical</td><td>T1210</td><td>Known Windows exploit</td></tr>
+<tr><td>shellcode / meterpreter</td><td>100214</td><td>11</td><td>critical</td><td>T1204</td><td>Advanced payload</td></tr>
+</table>
+</div>
+<p>Severity bands: level ≥10 <b>critical</b> · ≥8 <b>high</b> · ≥6 <b>medium</b> · ≥3 <b>low</b> · else info.
+Alerting default: level ≥10 pages you.</p>
+
+<h2 id="qa"><span class="num">17</span>Questions you'll get asked — with answers</h2>
+
+<div class="card q"><b class="tag">Q · Why a honeypot at all?</b>
+Zero false positives by definition: nothing legitimate ever touches a decoy, so 100% of traffic
+is hostile. It converts attackers into free threat intelligence — live credentials lists, tool
+URLs, malware samples — with no risk to real assets.</div>
+
+<div class="card q"><b class="tag">Q · Cowrie is “medium-interaction” — what does that mean?</b>
+Low-interaction honeypots only emulate a banner/handshake; high-interaction ones are real
+sacrificial systems (risky). Cowrie is in between: a complete fake shell environment (fake
+filesystem, fake command outputs) that keeps attackers engaged long enough to reveal behaviour,
+but nothing they do executes for real — <code>wget</code> downloads are captured as samples, not run.</div>
+
+<div class="card q"><b class="tag">Q · Why build your own pipeline when Wazuh exists?</b>
+Two tiers, one rule set. The full Wazuh stack needs ~6&nbsp;GB RAM and several VMs — wrong tool
+for development and demos. The FastAPI service ports the same rules into a package that boots in
+seconds anywhere, with a dashboard purpose-built for honeypot data. In production the same XML
+files load into Wazuh, so local behaviour predicts production behaviour. Building the pipeline
+also proves I understand what a SIEM does internally, instead of treating it as a black box.</div>
+
+<div class="card q"><b class="tag">Q · Walk me through the brute-force detection.</b>
+Sliding window per source IP. Each failed login appends a timestamp to that IP's deque; entries
+older than 60&nbsp;s are popped from the front; if 5+ remain, rule 100107 fires at level 8, and a
+per-IP cooldown stops it re-firing every subsequent failure in the same window. O(1) amortised
+per event. Identical semantics to Wazuh's frequency/timeframe correlation.</div>
+
+<div class="card q"><b class="tag">Q · What happens if the geo API is down / rate-limited?</b>
+Nothing breaks. Enrichment is fail-open (try/except → empty dict) and cached per IP in SQLite,
+so each IP costs at most one call ever. Events flow regardless; they just lack a flag on the map.</div>
+
+<div class="card q"><b class="tag">Q · Why SQLite? Would it scale?</b>
+Right-sized for a single sensor: zero administration, one portable file, and the write rate of a
+honeypot (even under attack) is trivially within SQLite's capability. Access is single-process,
+lock-guarded. The scaling answer is architectural, not a bigger database: that's precisely when
+you switch to the Wazuh tier (indexer = OpenSearch) that the project already integrates with.</div>
+
+<div class="card q"><b class="tag">Q · How does the dashboard update in under a second?</b>
+Push, not poll: the ingest pipeline broadcasts every stored event over a WebSocket to all
+connected browsers. Aggregate panels re-query REST endpoints on a 1.2&nbsp;s debounce so a
+burst of 50 brute-force events causes one refresh, not 50.</div>
+
+<div class="card q"><b class="tag">Q · What's the MITRE ATT&amp;CK mapping for?</b>
+It translates raw events into a shared adversary-behaviour vocabulary: “45 T1110 Brute Force,
+3 T1105 Ingress Tool Transfer” means something to any SOC analyst. It also lets you see attack
+<i>phases</i>: initial access (T1078) → credential access (T1110) → execution (T1059) →
+command-and-control (T1105).</div>
+
+<div class="card q"><b class="tag">Q · Is this safe to run? What are the risks?</b>
+Locally: containers on an isolated bridge network, non-standard host ports, analytics volume
+mounts read-only, nothing sensitive on the host reachable from the honeypot containers.
+Internet-facing: isolate the sensor (dedicated VPS/VLAN), never on a network with real assets,
+egress-restrict it, and never expose the 8080 dashboard publicly without auth in front — it has
+no login of its own.</div>
+
+<h2 id="limits"><span class="num">18</span>Known limitations — own them before someone else finds them</h2>
+<p>Saying these unprompted is what makes the project convincingly yours. Several of the
+original gaps have since been closed — owning both the gap <i>and</i> the fix is even stronger:</p>
+<ol>
+  <li><b>Dashboard XSS — fixed.</b> Every attacker- or third-party-controlled string
+  (<code>username</code>, <code>password</code>, commands, <code>src_ip</code>, geolocation,
+  session id, MITRE id) is now routed through <code>esc()</code> before it reaches
+  <code>innerHTML</code>, and the server-side HTML report <code>html.escape()</code>s every cell.
+  Regression-tested by feeding <code>&lt;script&gt;</code> as an FTP username and confirming it
+  renders inert. Worth explaining as a real stored-XSS class against SOC tools that you closed.</li>
+  <li><b>Dashboard authentication — added (optional).</b> Setting <code>DASH_USER</code>/
+  <code>DASH_PASS</code> puts HTTP Basic auth in front of the whole app via FastAPI middleware
+  (<code>/api/health</code> stays open for the container healthcheck). Off by default for the
+  local demo; enable it for anything reachable beyond localhost.</li>
+  <li><b>Plaintext captured credentials</b> are stored and displayed. Fine for a honeypot
+  (they're the attacker's, not users'), but worth stating you considered it.</li>
+  <li><b>Unbounded growth — bounded.</b> <code>RETENTION_DAYS</code> purges old events on a
+  timer and the brute-force / scan trackers now <code>prune()</code> aged-out per-IP state, so a
+  long-lived internet sensor no longer accumulates rows and deques forever. (The timeseries query
+  still buckets all remaining history — cheap enough within a retention window.)</li>
+  <li><b>Dionaea parsing depth.</b> The collector now parses each accepted connection into a
+  real protocol (from its port), captures FTP <code>USER</code>/<code>PASS</code> credentials and
+  file-transfer commands, and stamps events with the log's own timestamp. It still does not
+  reassemble SMB/MSSQL payload internals — those surface as connection + exploit-keyword events
+  rather than fully decoded RPC calls, which the full Wazuh path handles more deeply.</li>
+  <li><b>Rule drift — single-sourced.</b> Rule severity levels and MITRE mappings are now
+  generated from <code>config/*.xml</code> into <code>app/rules.py</code> by
+  <code>scripts/gen_rules.py</code>; <code>detect.py</code> looks them up rather than
+  hard-coding them, and CI (a parity test + <code>gen_rules.py --check</code>) fails if the two
+  ever disagree. Building this caught a genuine bug — rule 100215's MITRE tactic was
+  <code>TA0002</code> in the XML but the correct <code>TA0042</code> in Python. Only the
+  human-readable descriptions remain per-surface (French for the SIEM, English for the
+  dashboard), which is deliberate.</li>
+  <li><b>Alert paths — now retried.</b> A failed Telegram/email send is pushed onto a small
+  bounded retry deque and re-attempted on the next alert instead of being dropped, and the SMTP
+  send runs in a worker thread so delivery never blocks ingestion.</li>
+</ol>
+
+<h2 id="demo"><span class="num">19</span>The 5-minute demo script</h2>
+<ol>
+  <li><code>docker compose up -d --build</code> → open <b>http://localhost:8080</b>. Point out
+  the empty console: “live” status dot = WebSocket connected.</li>
+  <li><b>Real attack first:</b> <code>ssh admin@localhost -p 2222</code> (password
+  <code>admin</code> — Cowrie accepts it by design). Inside the fake shell run
+  <code>uname -a</code>, <code>cat /etc/passwd</code>, then
+  <code>wget http://example.com/x.sh</code>. Alt-tab: the breach (rule 100150, critical) and the
+  wget (100104) are already in the feed. This proves end-to-end capture in real time.</li>
+  <li><b>Then simulate scale:</b> click <b>▶ Simulate attack</b>. Brute-force bars, MITRE
+  breakdown, and the geo-map light up with real scanner IPs. Say the line: “synthetic input,
+  identical pipeline.”</li>
+  <li>Open a critical event's rule id and connect it to the matching rule in
+  <code>cowrie_rules.xml</code> — the local/Wazuh shared-logic story in one glance.</li>
+  <li>Click <b>Report ↗</b> — the auto-generated threat report, same data, analyst-friendly.</li>
+  <li>Close with the architecture diagram and the production path (scripts/ + ossec.conf + agent → Wazuh manager).</li>
+</ol>
+
+<h2 id="glossary"><span class="num">20</span>Glossary</h2>
+<div class="tablewrap">
+<table>
+<tr><th>Term</th><th>Meaning here</th></tr>
+<tr><td><b>Honeypot</b></td><td>A decoy system whose only purpose is to be attacked and record how.</td></tr>
+<tr><td><b>Cowrie</b></td><td>Medium-interaction SSH/Telnet honeypot with a fake shell; logs JSON.</td></tr>
+<tr><td><b>Dionaea</b></td><td>Multi-protocol honeypot (SMB/FTP/HTTP/MSSQL/MySQL) that captures malware samples.</td></tr>
+<tr><td><b>Wazuh</b></td><td>Open-source SIEM: agents ship logs to a manager that runs decoder/rule pipelines and indexes alerts.</td></tr>
+<tr><td><b>SIEM</b></td><td>Security Information &amp; Event Management — centralised log collection, correlation, alerting.</td></tr>
+<tr><td><b>Decoder / rule</b></td><td>Wazuh's two-stage pipeline: decoders extract fields, rules match fields and assign levels 0–15.</td></tr>
+<tr><td><b>MITRE ATT&amp;CK</b></td><td>Standard catalogue of adversary techniques (T-ids) grouped into tactics (TA-ids).</td></tr>
+<tr><td><b>T1110 / TA0006</b></td><td>Brute Force technique / Credential Access tactic — the project's most common pair.</td></tr>
+<tr><td><b>Sliding window</b></td><td>Correlation over “the last N seconds”: old entries expire as time advances (brute-force rule).</td></tr>
+<tr><td><b>Enrichment</b></td><td>Augmenting an event with external context: geolocation, ASN, abuse reputation, Tor status.</td></tr>
+<tr><td><b>AbuseIPDB</b></td><td>Crowd-sourced IP reputation service; returns a 0–100 abuse confidence score.</td></tr>
+<tr><td><b>WebSocket</b></td><td>Persistent browser↔server channel enabling server <i>push</i> — how the feed is real-time.</td></tr>
+<tr><td><b>ASGI / uvicorn</b></td><td>Python's async server interface / the server running the FastAPI app.</td></tr>
+<tr><td><b>Log rotation</b></td><td>Replacing a growing log file with a fresh one; the tailer detects it via inode change.</td></tr>
+<tr><td><b>RFC1918</b></td><td>Private IP ranges (10/8, 172.16/12, 192.168/16) — labelled “Lab network” instead of geolocated.</td></tr>
+</table>
+</div>
+
+<div class="footer">
+Module walkthrough for <b>honeypot-wazuh-project</b> · covers docker-compose.yml, ingest/app/*
+(main, collector, detect, enrich, db, alerts, report, simulate), ingest/dashboard/index.html,
+config/*.xml, ossec.conf, and scripts/*.sh · print with Ctrl+P for a PDF copy.
+</div>
+
+</div>
+</body>
+</html>

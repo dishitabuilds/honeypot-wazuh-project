@@ -19,6 +19,7 @@ SCHEMA = """
 CREATE TABLE IF NOT EXISTS events (
     id          INTEGER PRIMARY KEY AUTOINCREMENT,
     ts          TEXT NOT NULL,
+    honeypot    TEXT,
     protocol    TEXT,
     event_type  TEXT,
     src_ip      TEXT,
@@ -43,6 +44,7 @@ CREATE INDEX IF NOT EXISTS idx_events_ts     ON events(ts);
 CREATE INDEX IF NOT EXISTS idx_events_ip     ON events(src_ip);
 CREATE INDEX IF NOT EXISTS idx_events_type   ON events(event_type);
 CREATE INDEX IF NOT EXISTS idx_events_level  ON events(level);
+CREATE INDEX IF NOT EXISTS idx_events_proto  ON events(protocol);
 
 CREATE TABLE IF NOT EXISTS ip_intel (
     ip           TEXT PRIMARY KEY,
@@ -70,11 +72,36 @@ def init(db_path: str = "/data/honeypot.db") -> None:
     _conn.row_factory = sqlite3.Row
     with _LOCK:
         _conn.executescript(SCHEMA)
+        _migrate()   # add honeypot column to pre-existing tables before indexing it
+        _conn.execute("CREATE INDEX IF NOT EXISTS idx_events_hp ON events(honeypot)")
         _conn.commit()
 
 
+def _migrate() -> None:
+    """Bring a pre-multi-protocol database up to the current schema. Older rows
+    stored the sensor name in `protocol` ("cowrie"/"dionaea"); split that into
+    the new honeypot column and infer a real protocol so history stays usable."""
+    cols = {r["name"] for r in _conn.execute("PRAGMA table_info(events)")}
+    if "honeypot" not in cols:
+        _conn.execute("ALTER TABLE events ADD COLUMN honeypot TEXT")
+    # backfill honeypot from the legacy protocol value
+    _conn.execute("UPDATE events SET honeypot=protocol "
+                  "WHERE honeypot IS NULL AND protocol IN ('cowrie','dionaea')")
+    _conn.execute("UPDATE events SET honeypot='cowrie' "
+                  "WHERE honeypot IS NULL AND event_type LIKE 'cowrie.%'")
+    _conn.execute("UPDATE events SET honeypot='dionaea' "
+                  "WHERE honeypot IS NULL AND event_type LIKE 'dionaea.%'")
+    # replace the sensor-name-as-protocol with a real service where we can
+    _conn.execute("UPDATE events SET protocol='ssh' "
+                  "WHERE protocol='cowrie' AND (dst_port=2222 OR dst_port IS NULL)")
+    _conn.execute("UPDATE events SET protocol='telnet' "
+                  "WHERE protocol='cowrie' AND dst_port=2223")
+    _conn.execute("UPDATE events SET protocol='ssh' WHERE protocol='cowrie'")
+    _conn.execute("UPDATE events SET protocol='unknown' WHERE protocol='dionaea'")
+
+
 def insert_event(row: dict) -> int:
-    cols = ("ts", "protocol", "event_type", "src_ip", "src_port", "dst_port",
+    cols = ("ts", "honeypot", "protocol", "event_type", "src_ip", "src_port", "dst_port",
             "session", "username", "password", "command", "message", "sensor",
             "severity", "level", "rule_id", "rule_desc", "mitre", "tactic",
             "category", "raw")
@@ -101,27 +128,33 @@ def _one(sql: str, params=()):
 
 # ---- read helpers used by the API ----
 
-def recent_events(limit: int = 100, min_level: int = 0) -> list[dict]:
-    return _rows(
-        "SELECT * FROM events WHERE level >= ? ORDER BY id DESC LIMIT ?",
-        (min_level, limit),
-    )
+def recent_events(limit: int = 100, min_level: int = 0,
+                  protocol: str | None = None) -> list[dict]:
+    sql = "SELECT * FROM events WHERE level >= ?"
+    params: list = [min_level]
+    if protocol:
+        sql += " AND protocol = ?"
+        params.append(protocol)
+    sql += " ORDER BY id DESC LIMIT ?"
+    params.append(limit)
+    return _rows(sql, tuple(params))
 
 
 def summary() -> dict:
     s = _one("""
         SELECT
-          COUNT(*)                                                   AS total_events,
-          SUM(event_type IN ('cowrie.session.connect'))             AS connections,
-          SUM(event_type = 'cowrie.login.failed')                   AS failed_logins,
-          SUM(event_type = 'cowrie.login.success')                  AS breaches,
-          SUM(event_type = 'cowrie.command.input')                  AS commands,
-          COUNT(DISTINCT src_ip)                                    AS unique_ips,
-          MAX(level)                                                AS top_level
+          COUNT(*)                                                          AS total_events,
+          SUM(event_type IN ('cowrie.session.connect','dionaea.connection')) AS connections,
+          SUM(event_type IN ('cowrie.login.failed','dionaea.ftp.login','webtrap.credential')) AS failed_logins,
+          SUM(event_type = 'cowrie.login.success')                          AS breaches,
+          SUM(event_type IN ('cowrie.command.input','dionaea.ftp.command')) AS commands,
+          COUNT(DISTINCT src_ip)                                            AS unique_ips,
+          COUNT(DISTINCT protocol)                                          AS protocols,
+          MAX(level)                                                        AS top_level
         FROM events
     """) or {}
     for k in ("total_events", "connections", "failed_logins", "breaches",
-              "commands", "unique_ips", "top_level"):
+              "commands", "unique_ips", "protocols", "top_level"):
         s[k] = s.get(k) or 0
     return s
 
@@ -132,7 +165,8 @@ def top_credentials(limit: int = 10) -> list[dict]:
                SUM(event_type='cowrie.login.success') AS success,
                COUNT(*) AS attempts
         FROM events
-        WHERE event_type IN ('cowrie.login.failed','cowrie.login.success')
+        WHERE event_type IN ('cowrie.login.failed','cowrie.login.success',
+                             'dionaea.ftp.login','webtrap.credential')
         GROUP BY username, password
         ORDER BY attempts DESC LIMIT ?
     """, (limit,))
@@ -183,9 +217,15 @@ def severity_distribution() -> list[dict]:
 
 
 def protocol_split() -> list[dict]:
+    """Per-protocol activity, tagged with the sensor that captured it and the
+    worst severity seen — powers the dashboard's protocol-coverage panel."""
     return _rows("""
-        SELECT protocol, COUNT(*) AS n
-        FROM events WHERE protocol IS NOT NULL
+        SELECT protocol,
+               MAX(honeypot)          AS honeypot,
+               COUNT(*)               AS n,
+               COUNT(DISTINCT src_ip) AS ips,
+               MAX(level)             AS top_level
+        FROM events WHERE protocol IS NOT NULL AND protocol != ''
         GROUP BY protocol ORDER BY n DESC
     """)
 
@@ -215,6 +255,20 @@ def top_ips(limit: int = 20) -> list[dict]:
         WHERE e.src_ip IS NOT NULL
         GROUP BY e.src_ip ORDER BY events DESC LIMIT ?
     """, (limit,))
+
+
+def purge_older_than(days: int) -> int:
+    """Delete events older than `days` (retention policy for long-lived sensors).
+    Uses julianday() so it works across the ISO timestamp variants we store
+    (Cowrie's trailing 'Z' and Dionaea's numeric '+00:00' offset)."""
+    if days <= 0:
+        return 0
+    with _LOCK:
+        cur = _conn.execute(
+            "DELETE FROM events WHERE ts IS NOT NULL "
+            "AND julianday(ts) < julianday('now') - ?", (days,))
+        _conn.commit()
+        return cur.rowcount
 
 
 def geo_points() -> list[dict]:

@@ -129,4 +129,14 @@
     <mitre_tactic>TA0007</mitre_tactic>
   </rule>
 
+  <!-- Compromission: identifiants faibles acceptés (le honeypot laisse entrer) -->
+  <rule id="100150" level="10">
+    <if_sid>100100</if_sid>
+    <field name="eventid">cowrie.login.success</field>
+    <description>Cowrie: Compromission — identifiant faible accepté</description>
+    <group>honeypot,successful,attack,</group>
+    <mitre_id>T1078</mitre_id>
+    <mitre_tactic>TA0001</mitre_tactic>
+  </rule>
+
 </group>
