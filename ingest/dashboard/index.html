@@ -3,138 +3,164 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Honeypot Threat Analytics — Live Console</title>
+<title>Honeypot Threat Analytics — Live SOC Console</title>
 <style>
   :root{
     --sans:system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
     --mono:ui-monospace,"Cascadia Code","SF Mono",Menlo,Consolas,monospace;
-    --bg:#0B0F19; --panel:#131A2A; --panel-2:#182035; --line:#27314A;
-    --ink:#D9DFEC; --dim:#828EA6; --faint:#5D6880;
-    --accent:#33C4D1; --accent-soft:rgba(51,196,209,.12);
-    --crit:#F0555B; --high:#F0912E; --med:#E4C13E; --info:#6E90D8; --ok:#43BB86;
-    --crit-soft:rgba(240,85,91,.14); --high-soft:rgba(240,145,46,.14);
-    --med-soft:rgba(228,193,62,.15); --info-soft:rgba(110,144,216,.15);
-    --ok-soft:rgba(67,187,134,.14);
-    --shadow:0 1px 2px rgba(0,0,0,.4),0 10px 30px rgba(0,0,0,.35);
+    /* dark (primary) */
+    --bg:#0A0E17; --panel:#121A2B; --panel-2:#182136; --panel-3:#1F2942;
+    --line:#28324C; --line-2:#323e5c;
+    --ink:#E6EBF5; --dim:#8B97B0; --faint:#5B6685;
+    --accent:#35C6D4; --accent-2:#5B8CF0; --accent-soft:rgba(53,198,212,.13);
+    /* status severity (validated: crit/serious/warning + blue + gray) */
+    --crit:#EF5B52; --high:#F0955F; --med:#F6C048; --low:#4F8BF0; --info:#8B93A7;
+    --crit-bg:rgba(239,91,82,.14); --high-bg:rgba(240,149,95,.14);
+    --med-bg:rgba(246,192,72,.15); --low-bg:rgba(79,139,240,.14); --info-bg:rgba(139,147,167,.14);
+    --ok:#3FBF87;
+    --shadow:0 1px 2px rgba(0,0,0,.5),0 12px 34px rgba(0,0,0,.4);
+    --shadow-sm:0 1px 2px rgba(0,0,0,.35);
+    --r:14px;
   }
   :root[data-theme="light"]{
-    --bg:#EDF0F6; --panel:#FFFFFF; --panel-2:#F4F6FB; --line:#D7DEEA;
-    --ink:#17203A; --dim:#5C6884; --faint:#8894AC;
-    --accent:#0C7A85; --accent-soft:rgba(12,122,133,.10);
-    --crit:#D23B41; --high:#DB7A1C; --med:#C69A17; --info:#4F73B8; --ok:#2E9E6B;
-    --crit-soft:rgba(210,59,65,.12); --high-soft:rgba(219,122,28,.13);
-    --med-soft:rgba(198,154,23,.14); --info-soft:rgba(79,115,184,.13);
-    --ok-soft:rgba(46,158,107,.13);
-    --shadow:0 1px 2px rgba(20,30,60,.06),0 8px 24px rgba(20,30,60,.05);
+    --bg:#EBEEF4; --panel:#FFFFFF; --panel-2:#F5F7FB; --panel-3:#EDF1F8;
+    --line:#DCE2EC; --line-2:#CBD4E2;
+    --ink:#16203A; --dim:#586179; --faint:#8590A6;
+    --accent:#0C8A96; --accent-2:#2E63C8; --accent-soft:rgba(12,138,150,.10);
+    --crit:#D03B3B; --high:#E06A38; --med:#C98500; --low:#2E63C8; --info:#6B7488;
+    --crit-bg:rgba(208,59,59,.10); --high-bg:rgba(224,106,56,.11);
+    --med-bg:rgba(201,133,0,.12); --low-bg:rgba(46,99,200,.10); --info-bg:rgba(107,116,136,.12);
+    --ok:#2E9E6B;
+    --shadow:0 1px 2px rgba(20,30,60,.06),0 10px 28px rgba(20,30,60,.06);
+    --shadow-sm:0 1px 2px rgba(20,30,60,.05);
   }
   *{box-sizing:border-box}
   html,body{margin:0}
   body{background:var(--bg);color:var(--ink);font-family:var(--sans);line-height:1.5;
-    -webkit-font-smoothing:antialiased;}
-  .wrap{max-width:1280px;margin:0 auto;padding:20px 20px 60px;}
-  .eyebrow{font-family:var(--mono);font-size:10.5px;letter-spacing:.14em;
-    text-transform:uppercase;color:var(--faint);}
+    -webkit-font-smoothing:antialiased;font-size:14px}
+  .wrap{max-width:1320px;margin:0 auto;padding:0 20px 64px}
+  .mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
+  .eyebrow{font-family:var(--mono);font-size:10px;letter-spacing:.15em;text-transform:uppercase;color:var(--faint)}
   h1,h2{margin:0;text-wrap:balance}
   a{color:var(--accent);text-decoration:none}
 
-  header.bar{display:flex;flex-wrap:wrap;align-items:center;gap:14px 20px;
-    padding-bottom:16px;border-bottom:1px solid var(--line);}
+  /* ---- top bar ---- */
+  header.bar{position:sticky;top:0;z-index:40;display:flex;flex-wrap:wrap;align-items:center;gap:12px 18px;
+    padding:14px 20px;margin:0 -20px 18px;background:color-mix(in srgb,var(--bg) 86%,transparent);
+    backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
   .brand{display:flex;align-items:center;gap:12px}
-  .glyph{width:38px;height:38px;border-radius:9px;flex:none;display:grid;place-items:center;color:#fff;
-    background:linear-gradient(150deg,var(--accent),color-mix(in srgb,var(--accent) 55%,#000));
-    box-shadow:var(--shadow)}
+  .glyph{width:38px;height:38px;border-radius:10px;flex:none;display:grid;place-items:center;color:#04222a;
+    background:linear-gradient(150deg,var(--accent),color-mix(in srgb,var(--accent) 60%,#000));box-shadow:var(--shadow-sm)}
   .glyph svg{width:21px;height:21px}
-  .brand h1{font-size:18px;font-weight:650;letter-spacing:-.01em}
-  .brand .sub{font-family:var(--mono);font-size:11px;color:var(--dim);margin-top:2px}
-  .controls{margin-left:auto;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
-  .status{display:flex;align-items:center;gap:8px;font-family:var(--mono);font-size:11.5px;
-    color:var(--dim);background:var(--panel);border:1px solid var(--line);border-radius:999px;
-    padding:6px 13px;box-shadow:var(--shadow)}
-  .dot{width:8px;height:8px;border-radius:50%;background:var(--faint)}
+  .brand h1{font-size:16.5px;font-weight:650;letter-spacing:-.01em}
+  .brand .sub{font-family:var(--mono);font-size:10.5px;color:var(--dim);margin-top:1px}
+  .spacer{margin-left:auto}
+  .threat{display:flex;align-items:center;gap:9px;font-family:var(--mono);font-size:11px;font-weight:600;
+    padding:6px 13px;border-radius:999px;border:1px solid var(--line);background:var(--panel)}
+  .threat .lbl{color:var(--faint);font-weight:500}
+  .status{display:flex;align-items:center;gap:8px;font-family:var(--mono);font-size:11px;color:var(--dim);
+    background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:6px 12px}
+  .dot{width:8px;height:8px;border-radius:50%;background:var(--faint);flex:none}
   .dot.on{background:var(--ok);animation:pulse 2.4s ease-out infinite}
-  @keyframes pulse{0%{box-shadow:0 0 0 0 color-mix(in srgb,var(--ok) 60%,transparent)}
-    70%{box-shadow:0 0 0 7px transparent}100%{box-shadow:0 0 0 0 transparent}}
-  @media (prefers-reduced-motion:reduce){.dot.on{animation:none}}
-  button,.btn{font-family:var(--sans);font-size:12.5px;font-weight:560;cursor:pointer;
-    background:var(--accent);color:#04222a;border:none;border-radius:9px;padding:8px 14px;
-    box-shadow:var(--shadow)}
-  button.ghost,.btn.ghost{background:var(--panel);color:var(--ink);border:1px solid var(--line)}
+  @keyframes pulse{0%{box-shadow:0 0 0 0 color-mix(in srgb,var(--ok) 60%,transparent)}70%{box-shadow:0 0 0 7px transparent}100%{box-shadow:0 0 0 0 transparent}}
+  button,.btn{font-family:var(--sans);font-size:12.5px;font-weight:560;cursor:pointer;white-space:nowrap;
+    background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:9px;padding:8px 13px;box-shadow:var(--shadow-sm)}
+  button.primary{background:var(--accent);color:#04222a;border-color:transparent}
+  button:hover{border-color:var(--line-2)} button.primary:hover{filter:brightness(1.05)}
   button:active{transform:translateY(1px)}
+  @media (prefers-reduced-motion:reduce){.dot.on{animation:none}}
 
-  .kpis{display:grid;grid-template-columns:repeat(6,1fr);gap:12px;margin:18px 0 16px}
-  @media (max-width:900px){.kpis{grid-template-columns:repeat(3,1fr)}}
-  @media (max-width:520px){.kpis{grid-template-columns:repeat(2,1fr)}}
-  .kpi{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px 15px;
-    box-shadow:var(--shadow);position:relative;overflow:hidden}
+  /* ---- KPI ---- */
+  .kpis{display:grid;grid-template-columns:repeat(6,1fr);gap:12px;margin-bottom:14px}
+  @media (max-width:1000px){.kpis{grid-template-columns:repeat(3,1fr)}}
+  @media (max-width:560px){.kpis{grid-template-columns:repeat(2,1fr)}}
+  .kpi{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:13px 15px;
+    box-shadow:var(--shadow-sm);position:relative;overflow:hidden}
   .kpi::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--accent)}
-  .kpi.flag::before{background:var(--crit)} .kpi.warn::before{background:var(--high)}
-  .kpi .n{font-family:var(--mono);font-size:28px;font-weight:600;letter-spacing:-.02em;
-    font-variant-numeric:tabular-nums;line-height:1.05}
-  .kpi.flag .n{color:var(--crit)} .kpi.warn .n{color:var(--high)}
-  .kpi .l{font-size:11.5px;color:var(--dim);margin-top:4px}
+  .kpi[data-tone=crit]::before{background:var(--crit)} .kpi[data-tone=warn]::before{background:var(--med)}
+  .kpi .n{font-size:27px;font-weight:640;letter-spacing:-.02em;line-height:1.05}
+  .kpi[data-tone=crit] .n{color:var(--crit)} .kpi[data-tone=warn] .n{color:var(--med)}
+  .kpi .l{font-size:11px;color:var(--dim);margin-top:3px}
 
-  .grid{display:grid;gap:14px}
-  .g-2{grid-template-columns:1.4fr .9fr}
-  .g-2b{grid-template-columns:1.1fr .9fr}
-  @media (max-width:960px){.g-2,.g-2b{grid-template-columns:1fr}}
-  .panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;
-    box-shadow:var(--shadow);overflow:hidden;margin-bottom:14px}
-  .panel .head{display:flex;align-items:baseline;justify-content:space-between;gap:12px;
-    padding:14px 16px 10px}
-  .panel .head h2{font-size:14px;font-weight:640}
-  .panel .head .tag{font-family:var(--mono);font-size:10.5px;color:var(--faint)}
-  .panel .body{padding:2px 16px 16px}
+  /* ---- layout ---- */
+  .grid{display:grid;gap:14px;margin-bottom:14px}
+  .c-72{grid-template-columns:2fr 1fr}
+  .c-64{grid-template-columns:1.35fr 1fr}
+  .c-11{grid-template-columns:1fr 1fr}
+  @media (max-width:980px){.c-72,.c-64,.c-11{grid-template-columns:1fr}}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow-sm);overflow:hidden}
+  .panel .head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 16px 10px}
+  .panel .head h2{font-size:13.5px;font-weight:640;display:flex;align-items:center;gap:8px}
+  .panel .head .tag{font-family:var(--mono);font-size:10px;color:var(--faint)}
+  .panel .body{padding:4px 16px 16px}
+  .chip{font-family:var(--mono);font-size:10px;padding:2px 7px;border-radius:6px;background:var(--panel-2);color:var(--dim)}
 
-  canvas{width:100%;display:block}
+  canvas{display:block;width:100%}
+  .chartwrap{position:relative}
+  .tip{position:absolute;pointer-events:none;z-index:20;background:var(--panel-3);border:1px solid var(--line-2);
+    border-radius:8px;padding:7px 10px;font-family:var(--mono);font-size:11px;color:var(--ink);box-shadow:var(--shadow);
+    opacity:0;transition:opacity .1s;white-space:nowrap}
+  .tip b{color:var(--ink)} .tip .k{color:var(--dim)}
 
-  /* bar lists */
-  .bars{display:flex;flex-direction:column;gap:7px}
-  .brow{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;font-size:12.5px}
-  .brow .lab{font-family:var(--mono);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .brow .track{grid-column:1/-1;height:6px;background:var(--panel-2);border-radius:4px;overflow:hidden}
-  .brow .fill{height:100%;background:var(--accent);border-radius:4px}
-  .brow .n{font-family:var(--mono);font-variant-numeric:tabular-nums;color:var(--dim);font-size:11.5px}
+  /* severity meter */
+  .meter{display:flex;height:26px;border-radius:8px;overflow:hidden;background:var(--panel-2);gap:2px;margin:6px 0 12px}
+  .meter i{height:100%;transition:width .4s ease}
+  .slegend{display:grid;grid-template-columns:1fr 1fr;gap:6px 14px}
+  .slegend .r{display:flex;align-items:center;gap:8px;font-size:12px}
+  .slegend .sw{width:10px;height:10px;border-radius:3px;flex:none}
+  .slegend .nm{color:var(--dim)} .slegend .v{margin-left:auto;font-family:var(--mono);font-variant-numeric:tabular-nums}
+  .protorow{display:flex;gap:8px;margin-top:12px;font-size:11.5px;color:var(--dim);align-items:center;flex-wrap:wrap}
+  .protorow .pp{font-family:var(--mono);background:var(--panel-2);border:1px solid var(--line);border-radius:6px;padding:3px 8px}
+
+  /* bars */
+  .bars{display:flex;flex-direction:column;gap:9px}
+  .brow{display:grid;grid-template-columns:1fr auto;gap:4px 8px;align-items:center;font-size:12px}
+  .brow .lab{font-family:var(--mono);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--ink)}
+  .brow .lab small{color:var(--dim)}
+  .brow .v{font-family:var(--mono);font-variant-numeric:tabular-nums;color:var(--dim);font-size:11.5px}
+  .brow .track{grid-column:1/-1;height:7px;background:var(--panel-2);border-radius:4px;overflow:hidden}
+  .brow .fill{height:100%;background:var(--accent);border-radius:4px;transition:width .5s ease}
 
   /* alerts */
-  .alert{display:grid;grid-template-columns:auto 1fr auto;gap:11px;align-items:center;
-    padding:9px 11px;border-radius:10px;border:1px solid var(--line);background:var(--panel-2);margin-bottom:8px}
-  .sev{width:4px;align-self:stretch;border-radius:3px;min-height:30px}
-  .sev.critical{background:var(--crit)} .sev.high{background:var(--high)}
-  .sev.medium{background:var(--med)} .sev.low{background:var(--info)} .sev.info{background:var(--faint)}
-  .alert .rid{font-family:var(--mono);font-size:10.5px;color:var(--faint)}
+  .alert{display:grid;grid-template-columns:3px 1fr auto;gap:11px;align-items:center;padding:9px 11px;border-radius:10px;
+    border:1px solid var(--line);background:var(--panel-2);margin-bottom:8px}
+  .alert .sev{align-self:stretch;border-radius:3px;min-height:30px}
+  .alert .rid{font-family:var(--mono);font-size:10px;color:var(--faint)}
   .alert .desc{font-size:12.5px;font-weight:560}
-  .lvl{font-family:var(--mono);font-size:10.5px;font-weight:600;padding:2px 8px;border-radius:999px}
-  .lvl.critical{background:var(--crit-soft);color:var(--crit)}
-  .lvl.high{background:var(--high-soft);color:var(--high)}
-  .lvl.medium{background:var(--med-soft);color:var(--med)}
-  .lvl.low,.lvl.info{background:var(--info-soft);color:var(--info)}
-  .hits{font-family:var(--mono);font-size:10px;color:var(--dim);text-align:right;margin-top:2px}
+  .lvl{font-family:var(--mono);font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:999px}
+  .hits{font-family:var(--mono);font-size:9.5px;color:var(--dim);text-align:right;margin-top:2px}
 
-  /* live feed */
-  .feed{max-height:420px;overflow-y:auto;font-size:12px}
-  .frow{display:grid;grid-template-columns:58px 10px 128px 1fr auto;gap:9px;align-items:center;
-    padding:7px 4px;border-bottom:1px solid var(--line)}
-  .frow:first-child{animation:flash .8s ease-out}
+  /* feed */
+  .filters{display:flex;gap:6px}
+  .filters button{padding:4px 10px;font-size:11px;border-radius:999px}
+  .filters button.act{background:var(--accent-soft);border-color:var(--accent);color:var(--accent)}
+  .feed{max-height:400px;overflow-y:auto;margin-top:4px}
+  .frow{display:grid;grid-template-columns:56px 10px 132px 1fr auto;gap:9px;align-items:center;padding:7px 4px;border-bottom:1px solid var(--line)}
+  .frow.new{animation:flash .9s ease-out}
   @keyframes flash{0%{background:var(--accent-soft)}100%{background:transparent}}
-  @media (prefers-reduced-motion:reduce){.frow:first-child{animation:none}}
-  .frow .ts{font-family:var(--mono);color:var(--faint);font-size:10.5px}
+  @media (prefers-reduced-motion:reduce){.frow.new{animation:none}}
+  .frow .ts{font-family:var(--mono);color:var(--faint);font-size:10px}
   .frow .sd{width:9px;height:9px;border-radius:50%}
   .frow .ip{font-family:var(--mono);font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .frow .flag{margin-right:4px}
   .frow .msg{color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-family:var(--mono);font-size:11px}
   .frow .msg b{color:var(--ink);font-weight:600}
-  .frow .tag{font-family:var(--mono);font-size:9.5px;padding:1px 6px;border-radius:5px;white-space:nowrap}
+  .frow .tg{font-family:var(--mono);font-size:9px;padding:1px 6px;border-radius:5px;white-space:nowrap}
 
+  /* tables */
   table{width:100%;border-collapse:collapse;font-size:12px}
-  th{text-align:left;font-family:var(--mono);font-size:10px;letter-spacing:.06em;text-transform:uppercase;
-    color:var(--faint);font-weight:500;padding:5px 8px;border-bottom:1px solid var(--line)}
-  td{padding:6px 8px;border-bottom:1px solid var(--line)}
+  th{text-align:left;font-family:var(--mono);font-size:9.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--faint);
+    font-weight:500;padding:5px 8px;border-bottom:1px solid var(--line)}
+  td{padding:7px 8px;border-bottom:1px solid var(--line);vertical-align:middle}
   tr:last-child td{border-bottom:none}
-  .mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
-  .geo-wrap{display:flex;flex-direction:column;gap:2px}
-  footer{margin-top:22px;padding-top:16px;border-top:1px solid var(--line);font-size:11.5px;color:var(--dim)}
+  .badge{font-family:var(--mono);font-size:9.5px;font-weight:700;padding:2px 7px;border-radius:5px}
+  .geo-legend{display:flex;gap:14px;font-family:var(--mono);font-size:10px;color:var(--dim);margin-top:6px;flex-wrap:wrap}
+  .geo-legend span{display:inline-flex;align-items:center;gap:5px}
+  .geo-legend i{width:8px;height:8px;border-radius:50%;display:inline-block}
+  .empty{color:var(--faint);font-size:12px;padding:16px 4px;font-family:var(--mono);text-align:center}
+
+  footer{margin-top:24px;padding-top:16px;border-top:1px solid var(--line);font-size:11.5px;color:var(--dim)}
   footer code{font-family:var(--mono);color:var(--ink)}
-  .empty{color:var(--faint);font-size:12px;padding:14px 4px;font-family:var(--mono)}
 </style>
 </head>
 <body>
@@ -142,37 +168,74 @@
   <header class="bar">
     <div class="brand">
       <div class="glyph" aria-hidden="true">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-          stroke-linecap="round" stroke-linejoin="round">
-          <path d="M12 2 4 5v6c0 5 3.4 8.5 8 11 4.6-2.5 8-6 8-11V5z"/><path d="M9 12l2 2 4-4"/>
-        </svg>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 2 4 5v6c0 5 3.4 8.5 8 11 4.6-2.5 8-6 8-11V5z"/><path d="M9 12l2 2 4-4"/></svg>
       </div>
-      <div>
-        <h1>Honeypot Threat Analytics</h1>
-        <div class="sub">Cowrie + Dionaea &rarr; live SIEM console</div>
-      </div>
+      <div><h1>Honeypot Threat Analytics</h1>
+        <div class="sub">Cowrie + Dionaea &rarr; live SOC console</div></div>
     </div>
-    <div class="controls">
-      <span class="status"><span id="wsdot" class="dot"></span><span id="wstext">connecting…</span></span>
-      <button id="themeBtn" class="ghost" title="Toggle theme">◐</button>
-      <a class="btn ghost" href="/api/report" target="_blank" rel="noopener">Report ↗</a>
-      <button id="simBtn">▶ Simulate attack</button>
-    </div>
+    <div class="spacer"></div>
+    <span class="threat" id="threat"><span class="lbl">THREAT</span><span id="threatVal">—</span></span>
+    <span class="status"><span id="wsdot" class="dot"></span><span id="wstext">connecting…</span></span>
+    <button id="themeBtn" title="Toggle light / dark">◐</button>
+    <a class="btn" href="/api/report" target="_blank" rel="noopener">Report ↗</a>
+    <button id="simBtn" class="primary">▶ Simulate attack</button>
   </header>
 
   <section class="kpis" id="kpis">
     <div class="kpi"><div class="n" id="k_total">0</div><div class="l">Total events</div></div>
     <div class="kpi"><div class="n" id="k_conn">0</div><div class="l">Connections</div></div>
-    <div class="kpi warn"><div class="n" id="k_fail">0</div><div class="l">Failed logins</div></div>
-    <div class="kpi flag"><div class="n" id="k_breach">0</div><div class="l">Breaches</div></div>
-    <div class="kpi warn"><div class="n" id="k_cmd">0</div><div class="l">Commands</div></div>
+    <div class="kpi" data-tone="warn"><div class="n" id="k_fail">0</div><div class="l">Failed logins</div></div>
+    <div class="kpi" data-tone="crit"><div class="n" id="k_breach">0</div><div class="l">Breaches</div></div>
+    <div class="kpi" data-tone="warn"><div class="n" id="k_cmd">0</div><div class="l">Commands</div></div>
     <div class="kpi"><div class="n" id="k_ips">0</div><div class="l">Unique IPs</div></div>
   </section>
 
-  <div class="grid g-2">
+  <div class="grid c-72">
     <section class="panel">
-      <div class="head"><h2>Attack activity</h2><span class="tag">events / minute</span></div>
-      <div class="body"><canvas id="chart" height="150"></canvas></div>
+      <div class="head"><h2>Attack activity</h2><span class="tag">events per minute · hover for detail</span></div>
+      <div class="body"><div class="chartwrap"><canvas id="chart" height="190"></canvas><div class="tip" id="chartTip"></div></div></div>
+    </section>
+    <section class="panel">
+      <div class="head"><h2>Severity mix</h2><span class="tag">all events</span></div>
+      <div class="body">
+        <div class="meter" id="meter"></div>
+        <div class="slegend" id="slegend"></div>
+        <div class="protorow" id="protorow"></div>
+      </div>
+    </section>
+  </div>
+
+  <div class="grid c-64">
+    <section class="panel">
+      <div class="head"><h2>Attacker origins</h2><span class="tag">geo-located source IPs</span></div>
+      <div class="body">
+        <div class="chartwrap"><canvas id="map" height="230"></canvas><div class="tip" id="mapTip"></div></div>
+        <div class="geo-legend">
+          <span><i style="background:var(--crit)"></i>high abuse</span>
+          <span><i style="background:var(--med)"></i>medium</span>
+          <span><i style="background:var(--accent)"></i>observed</span>
+          <span>bubble size = event volume</span>
+        </div>
+      </div>
+    </section>
+    <section class="panel">
+      <div class="head"><h2>Top origin countries</h2><span class="tag">by events</span></div>
+      <div class="body"><div class="bars" id="countries"></div></div>
+    </section>
+  </div>
+
+  <div class="grid c-64">
+    <section class="panel">
+      <div class="head">
+        <h2>Live event feed</h2>
+        <div class="filters" id="filters">
+          <button data-f="0" class="act">All</button>
+          <button data-f="8">High+</button>
+          <button data-f="10">Critical</button>
+        </div>
+      </div>
+      <div class="body"><div class="feed" id="feed"><div class="empty">Waiting for events…</div></div></div>
     </section>
     <section class="panel">
       <div class="head"><h2>MITRE ATT&amp;CK</h2><span class="tag">techniques observed</span></div>
@@ -180,227 +243,315 @@
     </section>
   </div>
 
-  <div class="grid g-2b">
+  <div class="grid c-72">
     <section class="panel">
-      <div class="head"><h2>Attacker origins</h2><span class="tag">geo-located source IPs</span></div>
-      <div class="body geo-wrap"><canvas id="map" height="210"></canvas></div>
+      <div class="head"><h2>Attack sessions</h2><span class="tag">grouped by session</span></div>
+      <div class="body" style="padding-top:8px"><table id="sesstable">
+        <thead><tr><th>Session</th><th>Source</th><th>Fails</th><th>Events</th><th>Top command</th><th>State</th></tr></thead>
+        <tbody></tbody></table></div>
     </section>
     <section class="panel">
-      <div class="head"><h2>Top source IPs</h2><span class="tag">enriched</span></div>
-      <div class="body"><table id="iptable"><thead><tr><th>IP</th><th>Origin</th><th>Events</th><th>Abuse</th></tr></thead><tbody></tbody></table></div>
+      <div class="head"><h2>Alerts raised</h2><span class="tag">Wazuh rules</span></div>
+      <div class="body" id="alerts"></div>
     </section>
   </div>
 
-  <section class="panel">
-    <div class="head"><h2>Live event feed</h2><span class="tag">real-time via WebSocket</span></div>
-    <div class="body"><div class="feed" id="feed"><div class="empty">Waiting for events…</div></div></div>
-  </section>
-
-  <div class="grid g-2b">
-    <section class="panel">
-      <div class="head"><h2>Alerts raised</h2><span class="tag">from cowrie_rules.xml / dionaea_rules.xml</span></div>
-      <div class="body" id="alerts"></div>
-    </section>
+  <div class="grid c-11">
     <section class="panel">
       <div class="head"><h2>Top credentials tried</h2><span class="tag">brute-force</span></div>
-      <div class="body"><table id="credtable"><thead><tr><th>User</th><th>Password</th><th>Attempts</th></tr></thead><tbody></tbody></table></div>
+      <div class="body" style="padding-top:8px"><table id="credtable">
+        <thead><tr><th>User</th><th>Password</th><th>Attempts</th></tr></thead><tbody></tbody></table></div>
+    </section>
+    <section class="panel">
+      <div class="head"><h2>Top commands</h2><span class="tag">post-exploitation</span></div>
+      <div class="body" style="padding-top:8px"><table id="cmdtable">
+        <thead><tr><th>Command</th><th>Count</th></tr></thead><tbody></tbody></table></div>
     </section>
   </div>
 
   <footer>
     <b>Multi-protocol Honeypot &amp; Real-Time Threat Analytics</b> — every figure is live from the ingest
-    pipeline. Detections apply the project's Wazuh rule logic. Source:
+    pipeline; detections apply the project's Wazuh rules (MITRE-mapped). Source:
     <code>github.com/Discord-05/honeypot-wazuh-project</code>.
   </footer>
 </div>
 
 <script>
-const $ = s => document.querySelector(s);
-const SEV = {critical:'var(--crit)',high:'var(--high)',medium:'var(--med)',low:'var(--info)',info:'var(--faint)'};
-const cssv = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
+const cssv=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const SEVVAR={critical:'--crit',high:'--high',medium:'--med',low:'--low',info:'--info'};
+const SEV=s=>cssv(SEVVAR[s]||'--info');
+const SEVBG={critical:'--crit-bg',high:'--high-bg',medium:'--med-bg',low:'--low-bg',info:'--info-bg'};
+const SEVORDER=['critical','high','medium','low','info'];
 
-function flag(cc){
-  if(!cc || cc.length!==2 || cc==='LA') return '🧪';
-  const A=0x1F1E6; return String.fromCodePoint(A+cc.charCodeAt(0)-65,A+cc.charCodeAt(1)-65);
-}
+function flag(cc){ if(!cc||cc.length!==2||cc==='LA') return '🧪';
+  const A=0x1F1E6; return String.fromCodePoint(A+cc.charCodeAt(0)-65,A+cc.charCodeAt(1)-65); }
 function fmtTs(ts){ try{return new Date(ts).toISOString().substr(11,8);}catch(e){return '';} }
-
-// ---------- theme ----------
-$('#themeBtn').onclick = ()=>{
-  const cur = document.documentElement.getAttribute('data-theme');
-  const next = cur==='light' ? 'dark' : (cur==='dark' ? 'light' : (matchMedia('(prefers-color-scheme: dark)').matches?'light':'dark'));
-  document.documentElement.setAttribute('data-theme', next);
-  draw(lastSeries); drawMap(lastGeo);
-};
-
-// ---------- data loads ----------
+function esc(s){ return (s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
 async function j(u,o){ const r=await fetch(u,o); return r.json(); }
 
-let lastSeries=[], lastGeo=[];
+/* ---- theme ---- */
+$('#themeBtn').onclick=()=>{
+  const cur=document.documentElement.getAttribute('data-theme');
+  const sysDark=matchMedia('(prefers-color-scheme: dark)').matches;
+  const next=cur==='light'?'dark':cur==='dark'?'light':(sysDark?'light':'dark');
+  document.documentElement.setAttribute('data-theme',next);
+  try{localStorage.setItem('hp-theme',next);}catch(e){}
+  drawChart(); drawMap(); renderMeter(lastSev,lastProto);
+};
+try{const t=localStorage.getItem('hp-theme'); if(t)document.documentElement.setAttribute('data-theme',t);}catch(e){}
 
+/* ---- state ---- */
+let lastSeries=[], lastGeo=[], lastSev=[], lastProto=[];
+let chartGeom=null, mapGeom=null, feedFilter=0, feedBuf=[];
+
+/* ---- KPI count-up ---- */
+function animate(el,to){
+  const from=parseInt(el.textContent.replace(/\D/g,''))||0;
+  if(from===to){el.textContent=to;return;}
+  if(matchMedia('(prefers-reduced-motion: reduce)').matches){el.textContent=to;return;}
+  const t0=performance.now(),dur=500;
+  (function step(t){const p=Math.min(1,(t-t0)/dur);el.textContent=Math.round(from+(to-from)*(1-Math.pow(1-p,3)));
+    if(p<1)requestAnimationFrame(step);})(t0);
+}
+
+/* ---- refresh ---- */
 async function refresh(){
-  const [s,ts,mi,al,ips,cr,geo] = await Promise.all([
-    j('/api/summary'), j('/api/timeseries'), j('/api/mitre'), j('/api/alerts'),
-    j('/api/ips'), j('/api/credentials'), j('/api/geo')
-  ]);
-  setKpis(s); lastSeries=ts; draw(ts); renderMitre(mi); renderAlerts(al);
-  renderIps(ips); renderCreds(cr); lastGeo=geo; drawMap(geo);
+  const [s,ts,mi,al,ips,cr,cm,geo,sev,pr,se]=await Promise.all([
+    j('/api/summary'),j('/api/timeseries'),j('/api/mitre'),j('/api/alerts'),
+    j('/api/ips'),j('/api/credentials'),j('/api/commands'),j('/api/geo'),
+    j('/api/severity'),j('/api/protocols'),j('/api/sessions')]);
+  setKpis(s); setThreat(s);
+  lastSeries=ts; drawChart();
+  lastSev=sev; lastProto=pr; renderMeter(sev,pr);
+  lastGeo=geo; drawMap();
+  renderCountries(ips); renderMitre(mi); renderAlerts(al);
+  renderCreds(cr); renderCommands(cm); renderSessions(se);
 }
-
 function setKpis(s){
-  $('#k_total').textContent=s.total_events; $('#k_conn').textContent=s.connections;
-  $('#k_fail').textContent=s.failed_logins; $('#k_breach').textContent=s.breaches;
-  $('#k_cmd').textContent=s.commands; $('#k_ips').textContent=s.unique_ips;
+  animate($('#k_total'),s.total_events); animate($('#k_conn'),s.connections);
+  animate($('#k_fail'),s.failed_logins); animate($('#k_breach'),s.breaches);
+  animate($('#k_cmd'),s.commands); animate($('#k_ips'),s.unique_ips);
+}
+function setThreat(s){
+  let lvl='LOW',c='--low';
+  if(s.breaches>0||s.top_level>=10){lvl='CRITICAL';c='--crit';}
+  else if(s.top_level>=8){lvl='ELEVATED';c='--high';}
+  else if(s.top_level>=6){lvl='GUARDED';c='--med';}
+  const el=$('#threatVal'); el.textContent=lvl; el.style.color=cssv(c);
+  $('#threat').style.borderColor=cssv(c);
+  $('#threat').style.background=`color-mix(in srgb, ${cssv(c)} 12%, transparent)`;
 }
 
+/* ---- severity meter ---- */
+function renderMeter(sev,proto){
+  const map={}; (sev||[]).forEach(r=>map[r.severity]=r.n);
+  const total=Object.values(map).reduce((a,b)=>a+b,0)||1;
+  const m=$('#meter'); m.innerHTML='';
+  SEVORDER.forEach(k=>{ if(map[k]){ const i=document.createElement('i');
+    i.style.width=(map[k]/total*100)+'%'; i.style.background=SEV(k); i.title=`${k}: ${map[k]}`; m.appendChild(i);} });
+  $('#slegend').innerHTML=SEVORDER.map(k=>`<div class="r"><span class="sw" style="background:${SEV(k)}"></span>
+    <span class="nm">${k}</span><span class="v">${map[k]||0}</span></div>`).join('');
+  const pt=(proto||[]).map(p=>`<span class="pp">${p.protocol}: ${p.n}</span>`).join('');
+  $('#protorow').innerHTML=`<span class="eyebrow">protocols</span>${pt||'<span class="pp">—</span>'}`;
+}
+
+/* ---- activity chart ---- */
+function drawChart(){
+  const c=$('#chart'),dpr=devicePixelRatio||1,W=c.clientWidth,H=190;
+  c.width=W*dpr;c.height=H*dpr;const x=c.getContext('2d');x.setTransform(dpr,0,0,dpr,0,0);x.clearRect(0,0,W,H);
+  const S=lastSeries||[]; const pad={l:34,r:12,t:14,b:22};
+  const iw=W-pad.l-pad.r,ih=H-pad.t-pad.b;
+  const muted=cssv('--faint'),grid=cssv('--line'),acc=cssv('--accent');
+  x.font='10px '+cssv('--mono');
+  if(!S.length){x.fillStyle=muted;x.fillText('no activity yet — run a simulation',pad.l,H/2);chartGeom=null;return;}
+  const vals=S.map(s=>s.total),max=Math.max(4,...vals);
+  const niceMax=Math.ceil(max/4)*4;
+  const X=i=>pad.l+(S.length===1?iw/2:i/(S.length-1)*iw);
+  const Y=v=>pad.t+ih-(v/niceMax)*ih;
+  // y gridlines + ticks
+  x.strokeStyle=grid;x.fillStyle=muted;x.lineWidth=1;x.textAlign='right';
+  for(let g=0;g<=4;g++){const v=niceMax*g/4,yy=Y(v);x.beginPath();x.moveTo(pad.l,yy);x.lineTo(W-pad.r,yy);x.stroke();
+    x.fillText(String(Math.round(v)),pad.l-6,yy+3);}
+  // x ticks (first,mid,last)
+  x.textAlign='center';
+  [0,Math.floor(S.length/2),S.length-1].filter((v,i,a)=>a.indexOf(v)===i).forEach(i=>{
+    x.fillText(fmtTs(S[i].bucket).substr(0,5),X(i),H-6);});
+  // area
+  x.beginPath();x.moveTo(X(0),Y(vals[0]));S.forEach((s,i)=>x.lineTo(X(i),Y(s.total)));
+  x.lineTo(X(S.length-1),pad.t+ih);x.lineTo(X(0),pad.t+ih);x.closePath();
+  x.fillStyle=cssv('--accent-soft');x.fill();
+  // line 2px
+  x.beginPath();S.forEach((s,i)=>i?x.lineTo(X(i),Y(s.total)):x.moveTo(X(i),Y(s.total)));
+  x.strokeStyle=acc;x.lineWidth=2;x.lineJoin='round';x.lineCap='round';x.stroke();
+  // critical markers with surface ring
+  S.forEach((s,i)=>{if(s.critical>0){x.beginPath();x.arc(X(i),Y(s.total),5,0,7);x.fillStyle=cssv('--panel');x.fill();
+    x.beginPath();x.arc(X(i),Y(s.total),4,0,7);x.fillStyle=cssv('--crit');x.fill();}});
+  // endpoint dot
+  const li=S.length-1;x.beginPath();x.arc(X(li),Y(vals[li]),5,0,7);x.fillStyle=cssv('--panel');x.fill();
+  x.beginPath();x.arc(X(li),Y(vals[li]),3.5,0,7);x.fillStyle=acc;x.fill();
+  chartGeom={S,X,Y,pad,ih,niceMax};
+}
+(function chartHover(){
+  const c=$('#chart'),tip=$('#chartTip');
+  c.addEventListener('mousemove',e=>{ if(!chartGeom){tip.style.opacity=0;return;}
+    const r=c.getBoundingClientRect(),mx=e.clientX-r.left;
+    const {S,X,Y}=chartGeom; let bi=0,bd=1e9;
+    S.forEach((s,i)=>{const d=Math.abs(X(i)-mx);if(d<bd){bd=d;bi=i;}});
+    const s=S[bi];
+    tip.innerHTML=`<b>${fmtTs(s.bucket).substr(0,5)}</b> &nbsp;<span class="k">events</span> ${s.total}`
+      +(s.critical>0?` &nbsp;<span class="k" style="color:${cssv('--crit')}">crit</span> ${s.critical}`:'')
+      +(s.failed_logins>0?` &nbsp;<span class="k">fails</span> ${s.failed_logins}`:'');
+    let tx=X(bi)+10; if(tx>c.clientWidth-120)tx=X(bi)-tip.offsetWidth-10;
+    tip.style.left=tx+'px';tip.style.top=(Y(s.total)-8)+'px';tip.style.opacity=1;});
+  c.addEventListener('mouseleave',()=>tip.style.opacity=0);
+})();
+
+/* ---- geo map ---- */
+function drawMap(){
+  const c=$('#map'),dpr=devicePixelRatio||1,W=c.clientWidth,H=230;
+  c.width=W*dpr;c.height=H*dpr;const x=c.getContext('2d');x.setTransform(dpr,0,0,dpr,0,0);x.clearRect(0,0,W,H);
+  x.strokeStyle=cssv('--line');x.lineWidth=1;x.globalAlpha=.55;
+  for(let lon=-180;lon<=180;lon+=30){const px=(lon+180)/360*W;x.beginPath();x.moveTo(px,0);x.lineTo(px,H);x.stroke();}
+  for(let lat=-60;lat<=90;lat+=30){const py=(90-lat)/180*H;x.beginPath();x.moveTo(0,py);x.lineTo(W,py);x.stroke();}
+  x.globalAlpha=1;
+  const geo=(lastGeo||[]).filter(p=>p.lat!=null&&p.lon!=null);
+  if(!geo.length){x.fillStyle=cssv('--faint');x.font='11px '+cssv('--mono');
+    x.fillText('run a simulation to populate attacker geo',12,H/2);mapGeom=null;return;}
+  const max=Math.max(...geo.map(p=>p.events));
+  const pts=geo.map(p=>{
+    const px=(p.lon+180)/360*W,py=(90-p.lat)/180*H,r=5+(p.events/max)*13;
+    const col=p.abuse_score>=50?cssv('--crit'):p.abuse_score>=20?cssv('--med'):cssv('--accent');
+    x.beginPath();x.arc(px,py,r,0,7);x.globalAlpha=.20;x.fillStyle=col;x.fill();
+    x.globalAlpha=1;x.beginPath();x.arc(px,py,4,0,7);x.fillStyle=cssv('--panel');x.fill();
+    x.beginPath();x.arc(px,py,3,0,7);x.fillStyle=col;x.fill();
+    return {px,py,r:Math.max(r,9),p};
+  });
+  mapGeom={pts};
+}
+(function mapHover(){
+  const c=$('#map'),tip=$('#mapTip');
+  c.addEventListener('mousemove',e=>{ if(!mapGeom){tip.style.opacity=0;return;}
+    const r=c.getBoundingClientRect(),mx=e.clientX-r.left,my=e.clientY-r.top;
+    let hit=null;for(const pt of mapGeom.pts){if(Math.hypot(pt.px-mx,pt.py-my)<=pt.r){hit=pt;break;}}
+    if(!hit){tip.style.opacity=0;return;}
+    const p=hit.p;
+    tip.innerHTML=`<b>${flag(p.country_code)} ${p.city?esc(p.city)+', ':''}${esc(p.country||'?')}</b><br>`
+      +`<span class="k">${p.ip}</span> · ${p.events} events`+(p.abuse_score!=null?` · abuse ${p.abuse_score}%`:'');
+    let tx=hit.px+12; if(tx>c.clientWidth-160)tx=hit.px-tip.offsetWidth-12;
+    tip.style.left=tx+'px';tip.style.top=(hit.py-10)+'px';tip.style.opacity=1;});
+  c.addEventListener('mouseleave',()=>tip.style.opacity=0);
+})();
+
+/* ---- countries ---- */
+function renderCountries(ips){
+  const agg={};(ips||[]).forEach(r=>{const k=(r.country||'Unknown')+'|'+(r.country_code||'');
+    agg[k]=(agg[k]||0)+r.events;});
+  const rows=Object.entries(agg).map(([k,n])=>({name:k.split('|')[0],cc:k.split('|')[1],n}))
+    .sort((a,b)=>b.n-a.n).slice(0,8);
+  const el=$('#countries'); if(!rows.length){el.innerHTML='<div class="empty">No data yet</div>';return;}
+  const max=Math.max(...rows.map(r=>r.n));
+  el.innerHTML=rows.map(r=>`<div class="brow"><span class="lab">${flag(r.cc)} ${esc(r.name)}</span>
+    <span class="v">${r.n}</span><span class="track"><span class="fill" style="width:${r.n/max*100}%"></span></span></div>`).join('');
+}
+
+/* ---- mitre ---- */
+const MITRE={T1110:'Brute Force',T1078:'Valid Accounts',T1059:'Command Exec',T1105:'Ingress Tool Transfer',
+  T1046:'Service Discovery',T1204:'User Execution',T1210:'Exploit Remote Svc',T1572:'Protocol Tunneling',T1082:'System Info'};
 function renderMitre(rows){
   const el=$('#mitre'); if(!rows.length){el.innerHTML='<div class="empty">No techniques yet</div>';return;}
   const max=Math.max(...rows.map(r=>r.n));
-  const names={T1110:'Brute Force',T1078:'Valid Accounts',T1059:'Command Exec',
-    T1105:'Ingress Tool Transfer',T1046:'Service Discovery',T1204:'User Execution',
-    T1210:'Exploit Remote Svc',T1572:'Protocol Tunneling',T1082:'System Info Discovery'};
-  el.innerHTML = rows.map(r=>{
-    const w=Math.round(r.n/max*100), col=r.level>=10?'var(--crit)':r.level>=8?'var(--high)':'var(--accent)';
-    return `<div class="brow"><span class="lab">${r.mitre} · ${names[r.mitre]||''}</span>
-      <span class="n">${r.n}</span><span class="track"><span class="fill" style="width:${w}%;background:${col}"></span></span></div>`;
-  }).join('');
+  el.innerHTML=rows.map(r=>`<div class="brow"><span class="lab">${r.mitre} <small>${MITRE[r.mitre]||''}</small></span>
+    <span class="v">${r.n}</span><span class="track"><span class="fill" style="width:${r.n/max*100}%"></span></span></div>`).join('');
 }
 
+/* ---- alerts ---- */
 function renderAlerts(rows){
   const el=$('#alerts'); if(!rows.length){el.innerHTML='<div class="empty">No alerts yet</div>';return;}
-  el.innerHTML = rows.map(r=>`<div class="alert">
-    <div class="sev ${r.severity}"></div>
-    <div><div class="rid">rule ${r.rule_id}</div><div class="desc">${r.rule_desc}</div></div>
-    <div><span class="lvl ${r.severity}">LVL ${r.level}</span><div class="hits">${r.hits} · ${r.mitre||''}</div></div>
-  </div>`).join('');
+  el.innerHTML=rows.slice(0,8).map(r=>`<div class="alert">
+    <div class="sev" style="background:${SEV(r.severity)}"></div>
+    <div><div class="rid">rule ${r.rule_id}</div><div class="desc">${esc(r.rule_desc)}</div></div>
+    <div><span class="lvl" style="background:${cssv(SEVBG[r.severity])};color:${SEV(r.severity)}">LVL ${r.level}</span>
+      <div class="hits">${r.hits} hits · ${r.mitre||''}</div></div></div>`).join('');
 }
 
-function renderIps(rows){
-  const tb=$('#iptable tbody'); if(!rows.length){tb.innerHTML='<tr><td colspan="4" class="empty">No IPs yet</td></tr>';return;}
-  tb.innerHTML = rows.map(r=>{
-    const ab=r.abuse_score!=null?`${r.abuse_score}%`:'—';
-    const abcol=r.abuse_score>=50?'var(--crit)':r.abuse_score>=20?'var(--high)':'var(--dim)';
-    return `<tr><td class="mono">${r.ip}</td>
-      <td>${flag(r.country_code)} ${r.city?r.city+', ':''}${r.country||'—'}</td>
-      <td class="mono">${r.events}</td><td class="mono" style="color:${abcol}">${ab}</td></tr>`;
-  }).join('');
-}
-
+/* ---- creds / commands / sessions ---- */
 function renderCreds(rows){
   const tb=$('#credtable tbody'); if(!rows.length){tb.innerHTML='<tr><td colspan="3" class="empty">No attempts yet</td></tr>';return;}
-  tb.innerHTML = rows.map(r=>{
-    const br=r.success>0?' style="color:var(--crit);font-weight:600"':'';
-    return `<tr${br}><td class="mono">${r.username||'∅'}</td><td class="mono">${r.password||'∅'}</td>
-      <td class="mono">${r.attempts}${r.success>0?' ⚠':''}</td></tr>`;
-  }).join('');
+  tb.innerHTML=rows.map(r=>{const br=r.success>0;return `<tr${br?' style="color:'+cssv('--crit')+';font-weight:600"':''}>
+    <td class="mono">${esc(r.username)||'∅'}</td><td class="mono">${esc(r.password)||'∅'}</td>
+    <td class="mono">${r.attempts}${br?' ⚠':''}</td></tr>`;}).join('');
+}
+function renderCommands(rows){
+  const tb=$('#cmdtable tbody'); if(!rows.length){tb.innerHTML='<tr><td colspan="2" class="empty">No commands yet</td></tr>';return;}
+  tb.innerHTML=rows.map(r=>{const bad=r.level>=10;return `<tr><td class="mono" style="${bad?'color:'+cssv('--crit'):''}">${esc(r.command)}</td>
+    <td class="mono">${r.n}</td></tr>`;}).join('');
+}
+function renderSessions(rows){
+  const tb=$('#sesstable tbody'); if(!rows.length){tb.innerHTML='<tr><td colspan="6" class="empty">No sessions yet</td></tr>';return;}
+  tb.innerHTML=rows.map(r=>{
+    const st=r.breach?`<span class="badge" style="background:${cssv('--crit-bg')};color:${cssv('--crit')}">BREACH</span>`
+      :`<span class="badge" style="background:${cssv('--info-bg')};color:${cssv('--info')}">probed</span>`;
+    return `<tr><td class="mono">${(r.session||'').substr(0,10)}</td>
+      <td class="mono">${flag(r.country_code)} ${r.src_ip||'—'}</td>
+      <td class="mono">${r.failed||0}</td><td class="mono">${r.events}</td>
+      <td class="mono" style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(r.top_cmd)||'—'}</td>
+      <td>${st}</td></tr>`;}).join('');
 }
 
-// ---------- activity chart (canvas area) ----------
-function draw(series){
-  const c=$('#chart'), dpr=devicePixelRatio||1;
-  const W=c.clientWidth, H=150; c.width=W*dpr; c.height=H*dpr;
-  const x=c.getContext('2d'); x.scale(dpr,dpr); x.clearRect(0,0,W,H);
-  const pad={l:8,r:8,t:12,b:18};
-  if(!series||!series.length){x.fillStyle=cssv('--faint');x.font='12px ui-monospace';x.fillText('no activity yet',12,H/2);return;}
-  const vals=series.map(s=>s.total), max=Math.max(4,...vals);
-  const iw=W-pad.l-pad.r, ih=H-pad.t-pad.b;
-  const X=i=>pad.l+(series.length===1?iw/2:i/(series.length-1)*iw);
-  const Y=v=>pad.t+ih-(v/max)*ih;
-  // grid
-  x.strokeStyle=cssv('--line');x.lineWidth=1;
-  for(let g=0;g<=2;g++){const yy=pad.t+ih*g/2;x.beginPath();x.moveTo(pad.l,yy);x.lineTo(W-pad.r,yy);x.stroke();}
-  // area
-  const acc=cssv('--accent');
-  x.beginPath();x.moveTo(X(0),Y(vals[0]));
-  series.forEach((s,i)=>x.lineTo(X(i),Y(s.total)));
-  x.lineTo(X(series.length-1),pad.t+ih);x.lineTo(X(0),pad.t+ih);x.closePath();
-  const grad=x.createLinearGradient(0,pad.t,0,pad.t+ih);
-  grad.addColorStop(0,acc.replace(')',',0.28)').replace('rgb','rgba').replace('#','#'));
-  x.fillStyle=cssv('--accent-soft');x.fill();
-  // line
-  x.beginPath();series.forEach((s,i)=>i?x.lineTo(X(i),Y(s.total)):x.moveTo(X(i),Y(s.total)));
-  x.strokeStyle=acc;x.lineWidth=2;x.stroke();
-  // critical overlay dots
-  series.forEach((s,i)=>{if(s.critical>0){x.beginPath();x.arc(X(i),Y(s.total),3,0,7);x.fillStyle=cssv('--crit');x.fill();}});
-  // endpoint
-  const li=series.length-1;x.beginPath();x.arc(X(li),Y(vals[li]),3.5,0,7);x.fillStyle=acc;x.fill();
-}
-
-// ---------- geo scatter ----------
-function drawMap(points){
-  const c=$('#map'), dpr=devicePixelRatio||1;
-  const W=c.clientWidth,H=210; c.width=W*dpr;c.height=H*dpr;
-  const x=c.getContext('2d');x.scale(dpr,dpr);x.clearRect(0,0,W,H);
-  // graticule (equirectangular)
-  x.strokeStyle=cssv('--line');x.lineWidth=1;x.globalAlpha=.6;
-  for(let lon=-180;lon<=180;lon+=30){const px=(lon+180)/360*W;x.beginPath();x.moveTo(px,0);x.lineTo(px,H);x.stroke();}
-  for(let lat=-90;lat<=90;lat+=30){const py=(90-lat)/180*H;x.beginPath();x.moveTo(0,py);x.lineTo(W,py);x.stroke();}
-  x.globalAlpha=1;
-  const geo=(points||[]).filter(p=>p.lat!=null&&p.lon!=null);
-  if(!geo.length){x.fillStyle=cssv('--faint');x.font='12px ui-monospace';
-    x.fillText('run a simulation to populate attacker geo',12,H/2);return;}
-  const max=Math.max(...geo.map(p=>p.events));
-  geo.forEach(p=>{
-    const px=(p.lon+180)/360*W, py=(90-p.lat)/180*H;
-    const r=4+ (p.events/max)*10;
-    const col=p.abuse_score>=50?cssv('--crit'):p.abuse_score>=20?cssv('--high'):cssv('--accent');
-    x.beginPath();x.arc(px,py,r,0,7);x.globalAlpha=.22;x.fillStyle=col;x.fill();
-    x.globalAlpha=1;x.beginPath();x.arc(px,py,3,0,7);x.fillStyle=col;x.fill();
-  });
-}
-
-// ---------- live feed via websocket ----------
+/* ---- live feed ---- */
 const feed=$('#feed'); let feedCount=0;
-function pushEvent(ev){
-  if(feedCount===0) feed.innerHTML='';
+function passFilter(ev){ return (ev.level||0)>=feedFilter; }
+function rowHtml(ev){
   const sev=ev.severity||'info';
-  const detail = ev.command ? `<b>CMD</b> ${escapeHtml(ev.command)}`
-    : (ev.event_type||'').includes('login') ? `<b>${ev.username||'∅'}</b>:${ev.password||'∅'}`
-    : (ev.event_type||'');
-  const tagTxt = ev.rule_id ? `rule ${ev.rule_id}` : '';
-  const row=document.createElement('div');row.className='frow';
-  row.innerHTML=`<span class="ts">${fmtTs(ev.ts)}</span>
-    <span class="sd" style="background:${SEV[sev]}"></span>
+  const detail=ev.command?`<b>CMD</b> ${esc(ev.command)}`
+    :(ev.event_type||'').includes('login')?`<b>${esc(ev.username)||'∅'}</b>:${esc(ev.password)||'∅'}`
+    :(ev.event_type||'');
+  const tag=ev.rule_id?`rule ${ev.rule_id}`:'';
+  return `<span class="ts">${fmtTs(ev.ts)}</span><span class="sd" style="background:${SEV(sev)}"></span>
     <span class="ip"><span class="flag">${flag(ev.country_code)}</span>${ev.src_ip||'—'}</span>
     <span class="msg">${detail}</span>
-    <span class="tag" style="background:${sev==='info'?'var(--panel-2)':'var(--'+sevKey(sev)+'-soft)'};color:${SEV[sev]}">${tagTxt}</span>`;
-  feed.prepend(row);
-  feedCount++;
-  while(feed.children.length>60) feed.removeChild(feed.lastChild);
+    <span class="tg" style="background:${sev==='info'?'var(--panel-2)':cssv(SEVBG[sev])};color:${SEV(sev)}">${tag}</span>`;
 }
-function sevKey(s){return s==='low'?'info':s;}
-function escapeHtml(s){return (s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+function pushEvent(ev,isNew){
+  feedBuf.unshift(ev); if(feedBuf.length>200)feedBuf.pop();
+  if(!passFilter(ev))return;
+  if(feedCount===0)feed.innerHTML='';
+  const row=document.createElement('div');row.className='frow'+(isNew?' new':'');row.innerHTML=rowHtml(ev);
+  feed.prepend(row);feedCount++;
+  while(feed.children.length>70)feed.removeChild(feed.lastChild);
+}
+function rerenderFeed(){
+  const shown=feedBuf.filter(passFilter).slice(0,70);
+  feedCount=shown.length;
+  feed.innerHTML=shown.length?shown.map(ev=>`<div class="frow">${rowHtml(ev)}</div>`).join(''):'<div class="empty">No matching events</div>';
+}
+$$('#filters button').forEach(b=>b.onclick=()=>{
+  $$('#filters button').forEach(x=>x.classList.remove('act'));b.classList.add('act');
+  feedFilter=+b.dataset.f;rerenderFeed();});
 
-let ws, wsRetry=0;
+/* ---- websocket ---- */
+let ws,wsRetry=0;
 function connect(){
   const proto=location.protocol==='https:'?'wss':'ws';
   ws=new WebSocket(`${proto}://${location.host}/ws`);
   ws.onopen=()=>{$('#wsdot').className='dot on';$('#wstext').textContent='live';wsRetry=0;};
-  ws.onmessage=e=>{ pushEvent(JSON.parse(e.data)); scheduleRefresh(); };
+  ws.onmessage=e=>{pushEvent(JSON.parse(e.data),true);scheduleRefresh();};
   ws.onclose=()=>{$('#wsdot').className='dot';$('#wstext').textContent='reconnecting…';
     wsRetry=Math.min(wsRetry+1,6);setTimeout(connect,500*wsRetry);};
   ws.onerror=()=>ws.close();
 }
-
-// debounce aggregate refresh when events stream in
 let rt=null; function scheduleRefresh(){ if(rt)return; rt=setTimeout(()=>{rt=null;refresh();},1200); }
 
-// ---------- simulate button ----------
-$('#simBtn').onclick=async()=>{
-  const b=$('#simBtn');b.disabled=true;b.textContent='● generating…';
-  try{ await fetch('/api/simulate?sessions=10',{method:'POST'}); }catch(e){}
-  setTimeout(()=>{refresh();b.disabled=false;b.textContent='▶ Simulate attack';},1500);
-};
+/* ---- simulate ---- */
+$('#simBtn').onclick=async()=>{const b=$('#simBtn');b.disabled=true;b.textContent='● generating…';
+  try{await fetch('/api/simulate?sessions=10',{method:'POST'});}catch(e){}
+  setTimeout(()=>{refresh();b.disabled=false;b.textContent='▶ Simulate attack';},1600);};
 
-// preload existing feed rows
-async function preload(){
-  const evs=await j('/api/events?limit=40');
-  evs.reverse().forEach(pushEvent);
-}
+async function preload(){ const evs=await j('/api/events?limit=60'); evs.reverse().forEach(e=>pushEvent(e,false)); }
 
-addEventListener('resize',()=>{draw(lastSeries);drawMap(lastGeo);});
-refresh(); preload(); connect();
-setInterval(refresh, 8000);
+addEventListener('resize',()=>{drawChart();drawMap();});
+refresh(); preload(); connect(); setInterval(refresh,8000);
 </script>
 </body>
 </html>

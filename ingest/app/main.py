@@ -114,6 +114,21 @@ async def api_timeseries():
     return db.timeseries()
 
 
+@app.get("/api/severity")
+async def api_severity():
+    return db.severity_distribution()
+
+
+@app.get("/api/protocols")
+async def api_protocols():
+    return db.protocol_split()
+
+
+@app.get("/api/sessions")
+async def api_sessions():
+    return db.recent_sessions()
+
+
 @app.get("/api/ips")
 async def api_ips():
     return db.top_ips()

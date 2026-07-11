@@ -174,6 +174,39 @@ def timeseries(bucket_seconds: int = 60) -> list[dict]:
     """)
 
 
+def severity_distribution() -> list[dict]:
+    return _rows("""
+        SELECT severity, COUNT(*) AS n
+        FROM events WHERE severity IS NOT NULL
+        GROUP BY severity
+    """)
+
+
+def protocol_split() -> list[dict]:
+    return _rows("""
+        SELECT protocol, COUNT(*) AS n
+        FROM events WHERE protocol IS NOT NULL
+        GROUP BY protocol ORDER BY n DESC
+    """)
+
+
+def recent_sessions(limit: int = 14) -> list[dict]:
+    return _rows("""
+        SELECT e.session, e.protocol, e.src_ip,
+               MIN(e.ts) AS first_seen, MAX(e.ts) AS last_seen,
+               COUNT(*) AS events,
+               MAX(e.event_type='cowrie.login.success') AS breach,
+               MAX(e.level) AS top_level,
+               i.country_code AS country_code, i.country AS country,
+               (SELECT command FROM events c WHERE c.session=e.session
+                  AND c.command IS NOT NULL ORDER BY c.level DESC LIMIT 1) AS top_cmd,
+               SUM(e.event_type='cowrie.login.failed') AS failed
+        FROM events e LEFT JOIN ip_intel i ON e.src_ip = i.ip
+        WHERE e.session IS NOT NULL
+        GROUP BY e.session ORDER BY last_seen DESC LIMIT ?
+    """, (limit,))
+
+
 def top_ips(limit: int = 20) -> list[dict]:
     return _rows("""
         SELECT e.src_ip AS ip, COUNT(*) AS events, MAX(e.level) AS top_level,
