@@ -1,0 +1,66 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="380" viewBox="0 0 900 380" font-family="system-ui,Segoe UI,Arial,sans-serif">
+  <rect width="900" height="380" rx="14" fill="#0f1524"/>
+  <style>
+    .lbl{fill:#d9dfec;font-size:14px;font-weight:600;}
+    .sub{fill:#828ea6;font-size:11px;font-family:ui-monospace,Consolas,monospace;}
+    .mono{fill:#33c4d1;font-size:11px;font-family:ui-monospace,Consolas,monospace;}
+    .flow{stroke:#33c4d1;stroke-width:2;fill:none;marker-end:url(#a);}
+    .card{fill:#141a2a;stroke:#27314a;stroke-width:1.5;rx:10;}
+  </style>
+  <defs>
+    <marker id="a" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto">
+      <path d="M0,0 L8,3 L0,6 Z" fill="#33c4d1"/>
+    </marker>
+  </defs>
+
+  <text x="30" y="40" class="lbl" font-size="16">Multi-protocol Honeypot &amp; Real-Time Threat Analytics</text>
+
+  <!-- attacker -->
+  <circle cx="70" cy="190" r="34" fill="#f0555b" opacity="0.15"/>
+  <circle cx="70" cy="190" r="20" fill="#f0555b"/>
+  <text x="70" y="240" text-anchor="middle" class="lbl">Attacker</text>
+  <text x="70" y="256" text-anchor="middle" class="sub">internet</text>
+
+  <!-- cowrie -->
+  <rect x="200" y="90" width="180" height="80" rx="10" class="card"/>
+  <text x="220" y="120" class="lbl">Cowrie</text>
+  <text x="220" y="140" class="sub">SSH / Telnet :2222</text>
+  <text x="220" y="158" class="sub">fake shell, creds, cmds</text>
+
+  <!-- dionaea -->
+  <rect x="200" y="210" width="180" height="80" rx="10" class="card"/>
+  <text x="220" y="240" class="lbl">Dionaea</text>
+  <text x="220" y="260" class="sub">SMB/FTP/HTTP :445…</text>
+  <text x="220" y="278" class="sub">exploits, malware</text>
+
+  <!-- analytics -->
+  <rect x="450" y="130" width="200" height="120" rx="10" class="card"/>
+  <text x="470" y="160" class="lbl">Analytics service</text>
+  <text x="470" y="182" class="mono">tail → detect</text>
+  <text x="470" y="200" class="mono">→ enrich → score</text>
+  <text x="470" y="218" class="mono">→ store (SQLite)</text>
+  <text x="470" y="236" class="mono">→ broadcast (WS)</text>
+
+  <!-- dashboard -->
+  <rect x="720" y="90" width="150" height="80" rx="10" class="card"/>
+  <text x="740" y="120" class="lbl">Dashboard</text>
+  <text x="740" y="140" class="sub">:8080 live feed,</text>
+  <text x="740" y="158" class="sub">charts, geo-map</text>
+
+  <!-- wazuh -->
+  <rect x="720" y="210" width="150" height="80" rx="10" class="card"/>
+  <text x="740" y="240" class="lbl">Wazuh SIEM</text>
+  <text x="740" y="260" class="sub">(production tier,</text>
+  <text x="740" y="278" class="sub">same rules)</text>
+
+  <!-- flows -->
+  <path class="flow" d="M100,180 C150,150 160,130 198,130"/>
+  <path class="flow" d="M100,200 C150,230 160,250 198,250"/>
+  <path class="flow" d="M382,140 C410,150 420,175 448,180"/>
+  <path class="flow" d="M382,250 C410,240 420,210 448,205"/>
+  <path class="flow" d="M652,170 C685,150 690,140 718,135"/>
+  <path class="flow" d="M652,220 C685,235 690,245 718,245"/>
+
+  <text x="405" y="120" class="sub">JSON / syslog</text>
+  <text x="665" y="120" class="sub">REST + WS</text>
+</svg>

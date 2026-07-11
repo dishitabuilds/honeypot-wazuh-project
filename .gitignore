@@ -1,0 +1,14 @@
+# secrets & local runtime data
+.env
+data/
+*.db
+*.sqlite
+
+# python
+__pycache__/
+*.pyc
+.venv/
+
+# os
+.DS_Store
+Thumbs.db

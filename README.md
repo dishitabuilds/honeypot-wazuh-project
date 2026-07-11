@@ -1,87 +1,130 @@
-# Honeypot Multi-Services with Wazuh SIEM
+# Multi-protocol Honeypot & Real-Time Threat Analytics
 
-## Project Overview
-This project presents the deployment of a **multi-services honeypot environment**
-integrated with **Wazuh SIEM** for intrusion detection, monitoring, and attack analysis.
-The infrastructure simulates real-world cyber attacks in a controlled lab environment
-to better understand attacker behavior and improve defensive strategies.
+A deception-based intrusion detection lab: internet-facing decoy services (**Cowrie** for
+SSH/Telnet, **Dionaea** for SMB/FTP/HTTP/malware) feed a custom **real-time analytics
+pipeline** that detects, enriches, scores and visualises every attack — with a **Wazuh SIEM**
+integration path for production.
 
-The project combines **Cowrie** (SSH/Telnet honeypot) and **Dionaea** (malware and SMB honeypot),
-secured and routed through **pfSense**, with centralized monitoring using **Wazuh**.
+Attackers think they've found a vulnerable server. Every login they try, every command they
+run, and every payload they attempt to drop is captured, classified against MITRE ATT&CK, and
+streamed to a live dashboard.
 
----
-
-## Objectives
-- Simulate real cyber attacks in a safe environment  
-- Capture attacker activities and malware samples  
-- Monitor and analyze security events using Wazuh SIEM  
-- Understand brute-force, scanning, and malware propagation techniques  
+![stack](docs/architecture.svg)
 
 ---
 
-## Technologies Used
-- **Wazuh** – SIEM / XDR platform  
-- **Cowrie** – SSH & Telnet Honeypot  
-- **Dionaea** – Malware & SMB Honeypot  
-- **pfSense** – Firewall & Routing  
-- **Docker** – Containerization (Dionaea)  
-- **Linux (Kali / Ubuntu)** – Honeypot systems  
+## Two ways to run it
+
+| Mode | What runs | Use for |
+|------|-----------|---------|
+| **Local stack** (`docker compose`) | Cowrie + Dionaea + custom analytics service | development, demos, this repo's dashboard |
+| **Production SIEM** (`scripts/`) | Honeypots + Wazuh Manager/Indexer/Dashboard across VMs/VPS | internet-exposed sensor with the full Wazuh stack |
+
+Both share the same detection logic — the analytics service ports the exact rules in
+[`config/cowrie_rules.xml`](config/cowrie_rules.xml) and [`config/dionaea_rules.xml`](config/dionaea_rules.xml)
+that the Wazuh manager loads in production.
+
+---
+
+## Quick start (local)
+
+Requires Docker Desktop / Docker Engine + Compose.
+
+```bash
+git clone https://github.com/Discord-05/honeypot-wazuh-project.git
+cd honeypot-wazuh-project
+cp .env.example .env            # optional: add threat-intel / alert keys
+docker compose up -d --build
+```
+
+Open **http://localhost:8080**.
+
+No live attackers yet? Click **▶ Simulate attack** on the dashboard (or
+`curl -X POST "http://localhost:8080/api/simulate?sessions=10"`) to replay realistic attack
+sessions from real-world scanner IPs so the charts, geo-map and enrichment populate.
+
+Drive a **real** attack against the honeypot instead:
+
+```bash
+ssh admin@localhost -p 2222      # password: admin  (Cowrie accepts weak creds by design)
+# then, inside the fake shell:
+uname -a; cat /etc/passwd; wget http://example.com/x.sh
+```
+
+Watch it appear in the live feed within a second.
+
+---
+
+## Features
+
+**Honeypots**
+- Cowrie — medium-interaction SSH/Telnet, full fake shell, captures credentials, commands, TTY sessions, downloads
+- Dionaea — SMB/FTP/HTTP/MSSQL/MySQL, captures exploit attempts and malware samples
+
+**Analytics pipeline** (`ingest/`)
+- Tails honeypot logs in real time and normalises events
+- **Detection engine** — applies the project's Wazuh rules: severity levels, rule IDs, MITRE ATT&CK technique + tactic, brute-force correlation
+- **Threat-intel enrichment** — GeoIP (ip-api), optional AbuseIPDB reputation + Tor flags
+- **Live dashboard** — KPIs, activity chart, MITRE breakdown, attacker geo-map, top IPs/credentials/commands, WebSocket event feed
+- **Alerting** — Telegram + email on high-severity events (optional)
+- **Reporting** — auto-generated HTML/PDF-ready threat reports
+
+**SIEM integration** (`config/`, `scripts/`)
+- Custom Wazuh decoders/rules, agent config, all-in-one installer
 
 ---
 
 ## Architecture
-The architecture is based on a segmented lab network:
-- Attack traffic is routed through pfSense  
-- Honeypots collect malicious activities  
-- Wazuh agents forward logs to the Wazuh Manager  
-- Alerts are visualized in the Wazuh Dashboard  
 
+```
+                 attackers
+                     │
+        ┌────────────┴────────────┐
+        ▼                         ▼
+   ┌─────────┐               ┌─────────┐
+   │ Cowrie  │  SSH/Telnet   │ Dionaea │  SMB/FTP/HTTP
+   │ :2222/3 │               │  :445…  │
+   └────┬────┘               └────┬────┘
+        │  cowrie.json            │  dionaea.log
+        └───────────┬─────────────┘   (shared Docker volumes)
+                    ▼
+        ┌───────────────────────────┐
+        │   analytics service        │   FastAPI (ingest/)
+        │  tail → detect → enrich →  │
+        │  store(SQLite) → broadcast │
+        └───────────┬───────────────┘
+             REST + │ WebSocket
+                    ▼
+        ┌───────────────────────────┐
+        │   live dashboard  :8080    │
+        └───────────────────────────┘
+```
 
----
-
-## Installation & Configuration
-Detailed installation and configuration steps are available in the documentation:
-
-- Wazuh installation (All-in-One)
-- Cowrie deployment and configuration
-- Dionaea deployment using Docker
-- Wazuh agent integration
-- Custom Wazuh rules for honeypots
-
----
-
-## Attacks Detected
-- SSH brute-force attacks  
-- Telnet login attempts  
-- SMB scanning and enumeration  
-- Malware drop attempts  
-- Service reconnaissance  
-
-All events are collected and correlated by Wazuh SIEM.
-
----
-
-## Results
-- Real-time alerts visible in Wazuh Dashboard  
-- Logs showing attacker IPs, credentials, and commands  
-- Detection of suspicious SMB activity and malware behavior  
-- Improved visibility of attack patterns  
+Full detail: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+Server-side & cloud deployment (incl. full Wazuh SIEM): [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
 
 ---
 
-## Security Notice
-This project is intended for educational and research purposes only.
-Honeypots must never be deployed in production environments without proper isolation.
+## API
 
-All sensitive data (IP addresses, credentials, keys) have been removed or anonymized.
+| Endpoint | Purpose |
+|----------|---------|
+| `GET /api/summary` | KPI counters |
+| `GET /api/events?limit=&min_level=` | recent events |
+| `GET /api/alerts` | alerts grouped by rule |
+| `GET /api/mitre` | MITRE technique breakdown |
+| `GET /api/timeseries` | activity over time |
+| `GET /api/ips` / `GET /api/geo` | enriched attacker IPs |
+| `GET /api/credentials` / `GET /api/commands` | brute-force + command stats |
+| `POST /api/simulate?sessions=N` | replay synthetic attack traffic |
+| `GET /api/report` | download an HTML threat report |
+| `WS /ws` | live event stream |
 
 ---
 
-## Author
-Bensair Asmaa  
-Cybersecurity & Networking Student  
+## Security notice
 
----
-
-## Tags
-`honeypot` `wazuh` `siem` `cybersecurity` `blue-team` `soc` `docker`
+Honeypots are intentionally vulnerable. **Never** run them on a network you can't isolate, and
+never expose the analytics dashboard (`:8080`) to the public internet without authentication in
+front of it. See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for hardening guidance. For educational
+and authorised research use only.

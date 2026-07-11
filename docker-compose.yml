@@ -1,0 +1,74 @@
+# Multi-protocol Honeypot & Real-Time Threat Analytics
+# ----------------------------------------------------
+# Cowrie (SSH/Telnet) + Dionaea (SMB/FTP/HTTP) honeypots write to shared volumes;
+# the `analytics` service tails them, runs detection + threat-intel enrichment,
+# stores events, and serves the live dashboard on http://localhost:8080
+#
+#   docker compose up -d --build
+#   open http://localhost:8080
+#
+# Host ports are deliberately non-standard for a safe LOCAL run. For an
+# internet-facing sensor, remap to the real ports (22, 445, 21, 80) — see docs.
+
+name: honeypot-analytics
+
+services:
+  cowrie:
+    image: cowrie/cowrie:latest
+    container_name: hp-cowrie
+    restart: unless-stopped
+    ports:
+      - "2222:2222"     # SSH honeypot
+      - "2223:2223"     # Telnet honeypot
+    volumes:
+      - cowrie-logs:/cowrie/cowrie-git/var/log/cowrie
+    networks: [honeynet]
+
+  dionaea:
+    image: dinotools/dionaea:latest
+    container_name: hp-dionaea
+    restart: unless-stopped
+    ports:
+      - "2121:21"       # FTP   (host 2121 -> container 21)
+      - "8445:445"      # SMB   (445 is reserved by Windows; use 8445 on host)
+      - "8088:80"       # HTTP
+      - "11433:1433"    # MSSQL (high host port to avoid local conflicts)
+      - "13306:3306"    # MySQL (high host port to avoid local conflicts)
+    volumes:
+      - dionaea-logs:/opt/dionaea/var/log
+    networks: [honeynet]
+
+  analytics:
+    build: ./ingest
+    container_name: hp-analytics
+    restart: unless-stopped
+    depends_on: [cowrie]
+    ports:
+      - "8080:8080"     # dashboard + API
+    environment:
+      - COWRIE_LOG=/logs/cowrie/cowrie.json
+      - DIONAEA_LOG=/logs/dionaea/dionaea.log
+      - DB_PATH=/data/honeypot.db
+      - ALERT_LEVEL=${ALERT_LEVEL:-10}
+      - ABUSEIPDB_KEY=${ABUSEIPDB_KEY:-}
+      - TELEGRAM_TOKEN=${TELEGRAM_TOKEN:-}
+      - TELEGRAM_CHAT_ID=${TELEGRAM_CHAT_ID:-}
+      - SMTP_HOST=${SMTP_HOST:-}
+      - SMTP_PORT=${SMTP_PORT:-587}
+      - SMTP_USER=${SMTP_USER:-}
+      - SMTP_PASS=${SMTP_PASS:-}
+      - ALERT_TO=${ALERT_TO:-}
+      - REPORT_EVERY_SECONDS=${REPORT_EVERY_SECONDS:-86400}
+    volumes:
+      - cowrie-logs:/logs/cowrie:ro
+      - dionaea-logs:/logs/dionaea:ro
+      - ./data:/data
+    networks: [honeynet]
+
+volumes:
+  cowrie-logs:
+  dionaea-logs:
+
+networks:
+  honeynet:
+    driver: bridge
